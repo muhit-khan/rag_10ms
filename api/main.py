@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import logging
 import os
+from pathlib import Path
 
 from src.rag_pipeline import RAGPipeline
 from config import settings
@@ -31,18 +34,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 # Global RAG pipeline instance
 rag_pipeline = None
 
 # Pydantic models
 class ChatRequest(BaseModel):
-    query: str
+    message: str  # Frontend sends 'message'
     session_id: Optional[str] = "default"
     language: Optional[str] = None
 
 class ChatResponse(BaseModel):
-    answer: str
-    sources: List[Dict]
+    response: str  # Frontend expects 'response'
+    context: List[Dict] = []  # Frontend expects 'context'
     session_id: str
     language_detected: str
     retrieval_stats: Optional[Dict] = None
@@ -92,10 +100,11 @@ async def root():
         "status": "running",
         "endpoints": {
             "chat": "/chat",
-            "upload": "/upload-document", 
-            "stats": "/stats",
+            "upload": "/upload-document",
+            "stats": "/stats", 
             "health": "/health",
-            "docs": "/docs"
+            "docs": "/docs",
+            "chat_interface": "/chat-interface"
         },
         "sample_queries": [
             "অনুপমের ভাষায় সুপুরুষ কাকে বলা হয়েছে?",
@@ -103,6 +112,32 @@ async def root():
             "বিয়ের সময় কল্যাণীর প্রকৃত বয়স কত ছিল?"
         ]
     }
+
+@app.get("/chat-interface")
+async def chat_interface():
+    """Serve the chat interface"""
+    static_dir = Path(__file__).parent.parent / "static"
+    index_file = static_dir / "index.html"
+    
+    if index_file.exists():
+        return FileResponse(index_file)
+    else:
+        raise HTTPException(status_code=404, detail="Chat interface not found")
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve a simple favicon"""
+    from fastapi.responses import Response
+    # Simple 1x1 transparent PNG
+    favicon_bytes = bytes([
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+        0x0B, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0x60, 0x00, 0x02, 0x00,
+        0x00, 0x05, 0x00, 0x01, 0xE2, 0x26, 0x05, 0x9B, 0x00, 0x00, 0x00, 0x00,
+        0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+    ])
+    return Response(content=favicon_bytes, media_type="image/png")
 
 @app.get("/health")
 async def health_check():
@@ -135,22 +170,31 @@ async def chat_endpoint(request: ChatRequest):
             detail="RAG pipeline not initialized"
         )
     
-    if not request.query.strip():
+    if not request.message.strip():
         raise HTTPException(
             status_code=400, 
-            detail="Query cannot be empty"
+            detail="Message cannot be empty"
         )
     
     try:
-        logger.info(f"Processing chat request: {request.query[:100]}...")
+        logger.info(f"Processing chat request: {request.message[:100]}...")
         
         result = await rag_pipeline.process_query(
-            query=request.query,
-            session_id=request.session_id,
+            query=request.message,
+            session_id=request.session_id or "default",
             language=request.language
         )
         
-        return ChatResponse(**result)
+        # Transform the result to match frontend expectations
+        response_data = {
+            "response": result.get("answer", ""),
+            "context": result.get("sources", []),
+            "session_id": result.get("session_id", "default"),
+            "language_detected": result.get("language_detected", "en"),
+            "retrieval_stats": result.get("retrieval_stats")
+        }
+        
+        return ChatResponse(**response_data)
         
     except Exception as e:
         logger.error(f"Chat processing failed: {e}")

@@ -89,33 +89,73 @@ class Retriever:
     
     def retrieve_with_context(self, 
                             query: str, 
-                            conversation_history: List[str] = None,
+                            conversation_history: Optional[List[str]] = None,
                             k: int = 5) -> Dict:
-        """Retrieve with conversation context"""
+        """Enhanced retrieve with conversation context and better ranking"""
         
-        # If we have conversation history, expand the query
+        # Build expanded query with conversation context
         if conversation_history:
-            # Simple context expansion - append recent queries
-            recent_context = " ".join(conversation_history[-3:])  # Last 3 turns
-            expanded_query = f"{recent_context} {query}"
+            # Use more sophisticated context integration
+            recent_context = " ".join(conversation_history[-2:])  # Last 2 turns
+            expanded_query = f"{query} {recent_context}"
             logger.info("Using conversation context for retrieval")
+            logger.info(f"Retrieving documents for query (lang: {detect_language(query)}): {expanded_query[:100]}...")
         else:
             expanded_query = query
+            logger.info(f"Retrieving documents for query (lang: {detect_language(query)}): {expanded_query[:100]}...")
         
-        # Retrieve documents
-        results = self.retrieve(expanded_query, k=k)
+        # Get more candidates for better selection
+        initial_results = self.vector_store.similarity_search(
+            expanded_query,
+            k=k * 2,  # Get more results for filtering
+            threshold=0.3  # Lower threshold for inclusiveness
+        )
         
-        # Prepare context for LLM
+        # Enhanced ranking with multiple factors
+        enhanced_results = []
+        query_keywords = self._extract_key_terms(query)
+        
+        for result in initial_results:
+            # Calculate enhanced score
+            base_score = result["similarity_score"] if "similarity_score" in result else result.get("similarity", 0)
+            
+            # Keyword matching bonus
+            text_lower = result["text"].lower()
+            keyword_matches = sum(1 for keyword in query_keywords if keyword.lower() in text_lower)
+            keyword_bonus = keyword_matches * 0.05
+            
+            # Content quality bonus (prefer substantial content)
+            word_count = len(result["text"].split())
+            quality_bonus = 0.02 if word_count > 30 else 0
+            
+            # Character name bonus (important for literature questions)
+            char_names = ['অনুপম', 'কল্যাণী', 'শম্ভুনাথ', 'মামা', 'হরিশ']
+            char_bonus = sum(0.03 for name in char_names if name in result["text"]) 
+            
+            enhanced_score = base_score + keyword_bonus + quality_bonus + char_bonus
+            
+            result["enhanced_score"] = enhanced_score
+            enhanced_results.append(result)
+        
+        # Sort by enhanced score and select top results
+        enhanced_results.sort(key=lambda x: x["enhanced_score"], reverse=True)
+        final_results = enhanced_results[:k]
+        
+        # Prepare comprehensive context
         context_texts = []
         source_info = []
         
-        for result in results:
-            context_texts.append(result["text"])
+        for result in final_results:
+            # Add page context for better reference
+            page_ref = f"[পৃষ্ঠা {result['metadata']['page']}]"
+            context_texts.append(f"{page_ref} {result['text']}")
+            
             source_info.append({
                 "chunk_id": result.get("chunk_id", "unknown"),
                 "page": result["metadata"]["page"],
                 "language": result["metadata"]["language"],
-                "similarity_score": result["similarity_score"]
+                "similarity_score": result.get("similarity_score", result.get("similarity", 0)),
+                "enhanced_score": result["enhanced_score"]
             })
         
         combined_context = "\n\n".join(context_texts)
@@ -124,9 +164,26 @@ class Retriever:
             "query": query,
             "context": combined_context,
             "sources": source_info,
-            "total_chunks": len(results),
-            "avg_similarity": sum(r["similarity_score"] for r in results) / len(results) if results else 0.0
+            "total_chunks": len(final_results),
+            "avg_similarity": sum(r.get("similarity_score", r.get("similarity", 0)) for r in final_results) / len(final_results) if final_results else 0.0
         }
+    
+    def _extract_key_terms(self, query: str) -> List[str]:
+        """Extract key terms from query for better matching"""
+        import re
+        
+        # Bengali stop words
+        stop_words = {
+            'কি', 'করে', 'কে', 'কী', 'কোন', 'কোথায়', 'কেন', 'কিভাবে', 'কত', 'কার', 
+            'যে', 'যা', 'এর', 'ের', 'তে', 'এই', 'সেই', 'তিনি', 'তার', 'তাহার', 
+            'হয়', 'হয়েছে', 'ছিল', 'আছে', 'বলা', 'বলে', 'দিয়ে', 'নিয়ে'
+        }
+        
+        # Extract meaningful words
+        words = re.findall(r'[\u0980-\u09FF]+|\w+', query.lower())
+        keywords = [word for word in words if word not in stop_words and len(word) > 2]
+        
+        return keywords
     
     def get_retrieval_stats(self) -> Dict:
         """Get statistics about retrieval performance"""

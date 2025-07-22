@@ -47,7 +47,7 @@ class ConversationMemory:
 class LLMClient:
     """Client for Language Model interaction"""
     
-    def __init__(self, api_key: str = None, model: str = "gpt-3.5-turbo"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-3.5-turbo"):
         self.api_key = api_key
         self.model = model
         self.client = None
@@ -94,7 +94,8 @@ class LLMClient:
                     max_tokens=500
                 )
                 
-                return response.choices[0].message.content.strip()
+                content = response.choices[0].message.content
+                return content.strip() if content else "Sorry, I couldn't generate a response."
             else:
                 # Mock response for testing
                 return self._generate_mock_response(query, language)
@@ -106,23 +107,31 @@ class LLMClient:
     def _build_system_prompt(self, language: str) -> str:
         """Build system prompt for the LLM"""
         if language == "bn":
-            return """আপনি একজন সহায়ক AI সহায়ক যিনি বাংলা সাহিত্য বিশেষজ্ঞ। আপনার কাজ হল:
+            return """আপনি একজন বাংলা সাহিত্যের বিশেষজ্ঞ AI সহায়ক যিনি 'অপরিচিতা' গল্প সম্পর্কে গভীর জ্ঞান রাখেন। আপনার কাজ হল:
 
-1. প্রদত্ত প্রসঙ্গ থেকে প্রশ্নের উত্তর দেওয়া
-2. উত্তর সংক্ষিপ্ত এবং সঠিক হতে হবে
-3. যদি প্রসঙ্গে উত্তর না থাকে, তাহলে "আমি নিশ্চিত নই" বলুন
-4. সর্বদা বাংলায় উত্তর দিন
+1. প্রদত্ত প্রসঙ্গ (context) থেকে প্রশ্নের সঠিক উত্তর খুঁজে বের করা
+2. উত্তর সংক্ষিপ্ত, সুনির্দিষ্ট এবং সঠিক হতে হবে
+3. চরিত্রের নাম, বয়স, সম্পর্ক ইত্যাদি সুনির্দিষ্ট তথ্যে ফোকাস করুন
+4. যদি প্রসঙ্গে সরাসরি উত্তর না থাকে, সম্পর্কিত তথ্য থেকে উত্তর অনুমান করুন
+5. সর্বদা বাংলায় উত্তর দিন
 
-মনে রাখবেন: শুধুমাত্র প্রদত্ত প্রসঙ্গের তথ্য ব্যবহার করুন।"""
+বিশেষ নির্দেশনা:
+- অনুপমের সাথে সম্পর্কিত চরিত্রদের নাম সঠিকভাবে চিহ্নিত করুন
+- বয়স, সময়কাল এর মতো সংখ্যাগত তথ্য খুবই গুরুত্বপূর্ণ
+- শুধুমাত্র প্রদত্ত প্রসঙ্গের তথ্য ব্যবহার করুন, বাইরের জ্ঞান মিশাবেন না"""
         else:
-            return """You are a helpful AI assistant specialized in Bengali literature. Your tasks:
+            return """You are a Bengali literature expert AI assistant with deep knowledge of the story 'Oporichita'. Your tasks:
 
-1. Answer questions based on the provided context
-2. Keep answers concise and accurate
-3. If the answer is not in the context, say "I'm not certain"
-4. Always respond in the same language as the question
+1. Find accurate answers from the provided context
+2. Keep answers concise, specific, and accurate  
+3. Focus on specific details like character names, ages, relationships
+4. If direct answer isn't in context, infer from related information
+5. Always respond in the same language as the question
 
-Remember: Only use information from the provided context."""
+Special instructions:
+- Correctly identify character names related to Anupam
+- Numerical information like ages and time periods are crucial
+- Only use information from the provided context, don't mix external knowledge"""
     
     def _build_user_prompt(self, 
                           query: str, 
@@ -144,20 +153,24 @@ Remember: Only use information from the provided context."""
                 prompt_parts.append(f"প্রশ্ন: {exchange['user_query']}")
                 prompt_parts.append(f"উত্তর: {exchange['assistant_response']}")
         
-        # Add context
+        # Add context with better formatting
         if language == "bn":
             prompt_parts.extend([
-                "\nপ্রসঙ্গ তথ্য:",
+                "\n=== প্রাসঙ্গিক তথ্য ===",
                 context,
-                f"\nপ্রশ্ন: {query}",
-                "\nউত্তর:"
+                f"\n=== প্রশ্ন ===",
+                query,
+                "\n=== উত্তর ===",
+                "প্রাসঙ্গিক তথ্যের ভিত্তিতে সঠিক ও সংক্ষিপ্ত উত্তর:"
             ])
         else:
             prompt_parts.extend([
-                "\nContext information:",
+                "\n=== Relevant Information ===",
                 context,
-                f"\nQuestion: {query}",
-                "\nAnswer:"
+                f"\n=== Question ===", 
+                query,
+                "\n=== Answer ===",
+                "Based on the relevant information, provide accurate and concise answer:"
             ])
         
         return "\n".join(prompt_parts)

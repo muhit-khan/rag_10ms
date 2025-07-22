@@ -62,6 +62,7 @@ pdfplumber==0.10.3
 pdfminer.six==20221105
 pypdfium2==4.30.0
 PyPDF2==3.0.1
+PyMuPDF==1.26.3
 pillow==11.3.0
 
 # Configuration & Environment

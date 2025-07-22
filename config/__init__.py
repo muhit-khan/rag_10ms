@@ -1,48 +1,61 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Force load .env file first, overriding any existing environment variables
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(env_path, override=True)
 
 class Settings(BaseSettings):
-    # API Configuration
-    API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8000
+    # API Configuration - from .env
+    API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
+    API_PORT: int = int(os.getenv("API_PORT", "8000"))
     API_TITLE: str = "Multilingual RAG System"
     API_VERSION: str = "1.0.0"
     
-    # LLM Configuration
-    OPENAI_API_KEY: Optional[str] = None
-    LLM_MODEL: str = "gpt-3.5-turbo"
-    LLM_TEMPERATURE: float = 0.1
-    MAX_TOKENS: int = 1000
+    # OpenAI API Configuration - from .env
+    OPENAI_API_KEY: Optional[str] = os.getenv("OPENAI_API_KEY")
     
-    # Embedding Configuration
-    EMBEDDING_MODEL: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-    EMBEDDING_DIMENSION: int = 384
+    # LLM Configuration - from .env
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
+    LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.1"))
+    MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "1000"))
     
-    # Vector Store Configuration
-    VECTOR_STORE_TYPE: str = "chromadb"
-    CHROMA_PERSIST_DIR: str = "./data/chroma_db"
+    # Fine-tuning Configuration - from .env
+    ENABLE_FINE_TUNING: bool = os.getenv("ENABLE_FINE_TUNING", "false").lower() == "true"
+    FINE_TUNED_MODEL_ID: Optional[str] = os.getenv("FINE_TUNED_MODEL_ID")
+    
+    # Embedding Configuration - from .env
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    EMBEDDING_DIMENSION: int = int(os.getenv("EMBEDDING_DIMENSION", "384"))
+    
+    # Vector Store Configuration - from .env
+    VECTOR_STORE_TYPE: str = os.getenv("VECTOR_STORE_TYPE", "chromadb")
+    CHROMA_PERSIST_DIR: str = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma_db")
     FAISS_INDEX_PATH: str = "./data/faiss_index"
     
-    # Chunking Configuration
-    CHUNK_SIZE: int = 512
-    CHUNK_OVERLAP: int = 50
+    # Chunking Configuration - from .env
+    CHUNK_SIZE: int = int(os.getenv("CHUNK_SIZE", "512"))
+    CHUNK_OVERLAP: int = int(os.getenv("CHUNK_OVERLAP", "50"))
     
-    # Retrieval Configuration
-    TOP_K_RETRIEVAL: int = 5
-    SIMILARITY_THRESHOLD: float = 0.7
+    # Retrieval Configuration - from .env
+    TOP_K_RETRIEVAL: int = int(os.getenv("TOP_K_RETRIEVAL", "5"))
+    SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.7"))
     
-    # Memory Configuration
-    MAX_CHAT_HISTORY: int = 10
-    CONTEXT_WINDOW_SIZE: int = 4000
+    # Memory Configuration - from .env
+    MAX_CHAT_HISTORY: int = int(os.getenv("MAX_CHAT_HISTORY", "10"))
+    CONTEXT_WINDOW_SIZE: int = int(os.getenv("CONTEXT_WINDOW_SIZE", "4000"))
     
-    # Data Paths
+    # Data Paths (computed from base paths)
     DATA_DIR: str = "./data"
     RAW_DATA_DIR: str = "./data/raw"
     PROCESSED_DATA_DIR: str = "./data/processed"
     
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).parent.parent / ".env")
         env_file_encoding = 'utf-8'
+        case_sensitive = False
 
 settings = Settings()

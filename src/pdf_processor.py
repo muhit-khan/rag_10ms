@@ -1,12 +1,12 @@
 try:
-    import fitz  
+    import fitz  # PyMuPDF
     PYMUPDF_AVAILABLE = True
 except ImportError:
     PYMUPDF_AVAILABLE = False
-    fitz = None
+    fitz = None  # type: ignore
 
 import pdfplumber
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import re
 import logging
 from pathlib import Path
@@ -34,7 +34,7 @@ class PDFProcessor:
             logger.info(f"Extracting text from {len(doc)} pages using PyMuPDF")
             
             for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
+                page: Any = doc.load_page(page_num)  # PyMuPDF Page object
                 
                 # Get text with font information
                 text_dict = page.get_text("dict")

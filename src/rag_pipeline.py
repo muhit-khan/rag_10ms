@@ -139,7 +139,7 @@ class RAGPipeline:
                           language: Optional[str] = None) -> Dict:
         """Process a user query and generate response"""
         
-        if not self.is_initialized:
+        if not self.is_initialized or self.retriever is None:
             return {
                 "answer": "System not initialized. Please load a document first.",
                 "sources": [],

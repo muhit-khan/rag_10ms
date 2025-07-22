@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual RAG Chat - Bengali Literature</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-container {
+            width: 800px;
+            height: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .chat-header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            margin: 0 10px;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #667eea;
+            order: 2;
+        }
+
+        .message.bot .message-avatar {
+            background: #28a745;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            outline: none;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+
+        #sendButton {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        #sendButton:hover {
+            transform: translateY(-2px);
+        }
+
+        #sendButton:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .sample-questions {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .sample-questions h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .sample-question {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .sample-question:hover {
+            background: #e9ecef;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+            color: #666;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        /* Bengali font support */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600&display=swap');
+
+        .bengali-text {
+            font-family: 'Noto Sans Bengali', sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🔍 Multilingual RAG Chat</h1>
+            <p>Ask questions about Bengali Literature (HSC26 Bangla 1st Paper)</p>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="sample-questions">
+                <h3>📝 Sample Questions:</h3>
+                <div class="sample-question bengali-text"
+                    onclick="askQuestion('অনুপমের ভাষায় সুপুরুষ কাকে বলা হয়েছে?')">
+                    অনুপমের ভাষায় সুপুরুষ কাকে বলা হয়েছে?
+                </div>
+                <div class="sample-question bengali-text"
+                    onclick="askQuestion('কাকে অনুপমের ভাগ্য দেবতা বলে উল্লেখ করা হয়েছে?')">
+                    কাকে অনুপমের ভাগ্য দেবতা বলে উল্লেখ করা হয়েছে?
+                </div>
+                <div class="sample-question bengali-text"
+                    onclick="askQuestion('বিয়ের সময় কল্যাণীর প্রকৃত বয়স কত ছিল?')">
+                    বিয়ের সময় কল্যাণীর প্রকৃত বয়স কত ছিল?
+                </div>
+            </div>
+
+            <div class="message bot">
+                <div class="message-avatar">🤖</div>
+                <div class="message-content">
+                    Hello! I'm your Bengali Literature assistant. You can ask me questions about the HSC26 Bangla 1st
+                    Paper in both Bengali and English. Click on the sample questions above or type your own question
+                    below.
+                </div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div>🤔 Thinking...</div>
+        </div>
+
+        <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Ask your question in Bengali or English..." />
+            <button id="sendButton" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let sessionId = 'web-chat-' + Math.random().toString(36).substr(2, 9);
+
+        // Add event listener for Enter key
+        document.getElementById('messageInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function askQuestion(question) {
+            document.getElementById('messageInput').value = question;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            // Clear input and disable send button
+            input.value = '';
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+
+            // Add user message
+            addMessage(message, 'user');
+
+            // Show loading
+            document.getElementById('loading').classList.add('show');
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Add bot response
+                addMessage(data.response, 'bot');
+
+                // Show retrieved context if available
+                if (data.context && data.context.length > 0) {
+                    const contextInfo = `📚 Found ${data.context.length} relevant passages`;
+                    addMessage(contextInfo, 'bot', 'context-info');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage(`❌ Sorry, I encountered an error: ${error.message}. Please make sure the server is running.`, 'bot', 'error');
+            }
+
+            // Hide loading and re-enable send button
+            document.getElementById('loading').classList.remove('show');
+            sendButton.disabled = false;
+            input.focus();
+        }
+
+        function addMessage(content, sender, type = '') {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = sender === 'user' ? '👤' : '🤖';
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+
+            if (type === 'error') {
+                contentDiv.className += ' error-message';
+            }
+
+            // Check if content contains Bengali characters
+            const bengaliPattern = /[\u0980-\u09FF]/;
+            if (bengaliPattern.test(content)) {
+                contentDiv.className += ' bengali-text';
+            }
+
+            contentDiv.textContent = content;
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(contentDiv);
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Check if API is available on page load
+        window.addEventListener('load', async function () {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    addMessage('✅ Connected to RAG system successfully!', 'bot');
+                } else {
+                    throw new Error('API not responding');
+                }
+            } catch (error) {
+                addMessage('⚠️ Unable to connect to the server. Please make sure the API server is running on http://localhost:8000', 'bot', 'error');
+            }
+        });
+    </script>
+</body>
+
+</html>
