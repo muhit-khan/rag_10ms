@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.env
+.venv/
+venv/
+*.ipynb_checkpoints/
+
+# Data and Models
+data/
+*.ckpt
+*.pt
+*.h5
+*.tflite
+*.pb
+*.onnx
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs and Outputs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
