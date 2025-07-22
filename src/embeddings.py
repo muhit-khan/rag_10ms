@@ -80,10 +80,23 @@ class EmbeddingModel:
 class VectorStore:
     """Base class for vector storage"""
     
-    def __init__(self, embedding_model: EmbeddingModel):
+    def __init__(self, embedding_model: EmbeddingModel, save_path: str):
         self.embedding_model = embedding_model
         self.chunks = []
         self.embeddings = None
+        self.save_path = Path(save_path)
+
+    def is_loaded(self) -> bool:
+        """Check if the store has any chunks loaded."""
+        return len(self.chunks) > 0
+
+    def exists(self) -> bool:
+        """Check if the vector store file exists on disk."""
+        return self.save_path.exists()
+
+    def build(self, chunks: List[Dict]) -> bool:
+        """Builds the vector store from chunks. Alias for add_chunks."""
+        return self.add_chunks(chunks)
     
     def add_chunks(self, chunks: List[Dict]) -> bool:
         """Add document chunks to the store"""
@@ -141,10 +154,10 @@ class VectorStore:
         logger.info(f"Found {len(results)} similar chunks for query")
         return results
     
-    def save(self, save_path: str) -> bool:
+    def save(self) -> bool:
         """Save vector store to disk"""
         try:
-            save_dir = ensure_directory_exists(str(Path(save_path).parent))
+            ensure_directory_exists(str(self.save_path.parent))
             
             store_data = {
                 "chunks": self.chunks,
@@ -153,24 +166,24 @@ class VectorStore:
                 "dimension": self.embedding_model.dimension
             }
             
-            with open(save_path, 'wb') as f:
+            with open(self.save_path, 'wb') as f:
                 pickle.dump(store_data, f)
             
-            logger.info(f"Vector store saved to: {save_path}")
+            logger.info(f"Vector store saved to: {self.save_path}")
             return True
             
         except Exception as e:
             logger.error(f"Failed to save vector store: {e}")
             return False
     
-    def load(self, load_path: str) -> bool:
+    def load(self) -> bool:
         """Load vector store from disk"""
         try:
-            if not Path(load_path).exists():
-                logger.warning(f"Vector store file not found: {load_path}")
+            if not self.exists():
+                logger.warning(f"Vector store file not found: {self.save_path}")
                 return False
             
-            with open(load_path, 'rb') as f:
+            with open(self.save_path, 'rb') as f:
                 store_data = pickle.load(f)
             
             self.chunks = store_data["chunks"]
@@ -180,7 +193,7 @@ class VectorStore:
             if store_data["model_name"] != self.embedding_model.model_name:
                 logger.warning(f"Model mismatch: stored={store_data['model_name']}, current={self.embedding_model.model_name}")
             
-            logger.info(f"Loaded {len(self.chunks)} chunks from: {load_path}")
+            logger.info(f"Loaded {len(self.chunks)} chunks from: {self.save_path}")
             return True
             
         except Exception as e:

@@ -26,54 +26,101 @@ class RAGPipeline:
             overlap=settings.CHUNK_OVERLAP
         )
         self.embedding_model = EmbeddingModel(settings.EMBEDDING_MODEL)
-        self.vector_store = VectorStore(self.embedding_model)
-        self.retriever = None
+        self.vector_store = VectorStore(
+            embedding_model=self.embedding_model,
+            save_path=os.path.join(settings.PROCESSED_DATA_DIR, "vector_store.pkl")
+        )
+        self.retriever = Retriever(self.vector_store)
         self.llm_client = LLMClient(
             api_key=settings.OPENAI_API_KEY,
             model=settings.LLM_MODEL
         )
         self.memory = ConversationMemory(max_history=settings.MAX_CHAT_HISTORY)
-        
-        # State tracking
         self.is_initialized = False
-        self.knowledge_base_loaded = False
-    
+        self.knowledge_base_loaded = False # Explicitly define the attribute
+
     async def initialize(self, pdf_path: Optional[str] = None):
-        """Initialize the RAG pipeline"""
+        """
+        Initializes the RAG pipeline by loading the vector store or building it from a PDF.
+        """
         logger.info("Initializing RAG pipeline...")
         
+        # Try to load an existing vector store first
+        if self.vector_store.exists():
+            logger.info("Loading existing vector store...")
+            self.vector_store.load()
+            logger.info("Vector store loaded successfully.")
+            self.is_initialized = True
+            self.knowledge_base_loaded = self.vector_store.is_loaded()
+        elif pdf_path and os.path.exists(pdf_path):
+            logger.info(f"No existing vector store found. Processing PDF: {pdf_path}")
+            await self.load_and_process_pdf(pdf_path)
+        else:
+            logger.warning("Vector store not found and no PDF provided. System is not initialized.")
+            self.is_initialized = False
+
+        if self.is_initialized:
+            logger.info("RAG pipeline initialized successfully.")
+        else:
+            logger.warning("RAG pipeline initialization failed or was incomplete.")
+
+    def is_ready(self) -> bool:
+        """Check if the pipeline is initialized and ready to process queries."""
+        return self.is_initialized and self.vector_store is not None and self.vector_store.is_loaded()
+
+    async def load_and_process_pdf(self, pdf_path: str):
+        """Loads a PDF, processes it, and builds the vector store."""
         try:
-            # Create necessary directories
-            ensure_directory_exists(settings.DATA_DIR)
-            ensure_directory_exists(settings.RAW_DATA_DIR)
-            ensure_directory_exists(settings.PROCESSED_DATA_DIR)
+            logger.info(f"Starting PDF processing for: {pdf_path}")
             
-            # Try to load existing vector store
-            vector_store_path = os.path.join(settings.PROCESSED_DATA_DIR, "vector_store.pkl")
+            # 1. Process PDF and save extracted text
+            pages = await self.pdf_processor.process_pdf(pdf_path)
             
-            if os.path.exists(vector_store_path):
-                logger.info("Loading existing vector store...")
-                if self.vector_store.load(vector_store_path):
-                    self.knowledge_base_loaded = True
-                    logger.info("Vector store loaded successfully")
+            if not pages:
+                logger.error("No pages extracted from PDF")
+                self.is_initialized = False
+                return
             
-            # If no existing store and PDF provided, process it
-            if not self.knowledge_base_loaded and pdf_path and os.path.exists(pdf_path):
-                logger.info(f"Processing PDF: {pdf_path}")
-                await self.process_document(pdf_path)
+            # Save the enhanced extracted text for inspection
+            extracted_text_path = os.path.join(settings.PROCESSED_DATA_DIR, "enhanced_extracted_text.txt")
+            self.pdf_processor.save_extracted_text(pages, extracted_text_path)
+            logger.info(f"Enhanced extracted text saved to: {extracted_text_path}")
             
-            # Initialize retriever if we have knowledge base
-            if self.knowledge_base_loaded:
-                self.retriever = Retriever(self.vector_store)
-                self.is_initialized = True
-                logger.info("RAG pipeline initialized successfully")
-            else:
-                logger.warning("No knowledge base loaded. Please provide a PDF document.")
-                
+            # Also save extraction statistics
+            stats = self.pdf_processor.get_extraction_stats(pages)
+            logger.info(f"Extraction stats - Pages: {stats['total_pages']}, "
+                       f"Avg Quality: {stats['avg_quality_score']:.1f}, "
+                       f"Bengali Ratio: {stats['avg_bengali_ratio']:.1%}")
+            
+            # 2. Clean and preprocess the pages
+            preprocessed_pages = self.text_cleaner.preprocess_document(pages)
+            
+            if not preprocessed_pages:
+                logger.error("No valid pages after text cleaning")
+                self.is_initialized = False
+                return
+            
+            # 3. Chunk Document
+            chunks = self.chunker.chunk_document(preprocessed_pages)
+            
+            if not chunks:
+                logger.error("No chunks were created from the PDF. Aborting initialization.")
+                self.is_initialized = False
+                return
+
+            # 4. Build Vector Store
+            logger.info(f"Building vector store from {len(chunks)} chunks...")
+            self.vector_store.build(chunks)
+            self.vector_store.save() # Save the newly built store
+            
+            self.is_initialized = True
+            self.knowledge_base_loaded = True
+            logger.info("PDF processed and vector store built successfully.")
+
         except Exception as e:
-            logger.error(f"Failed to initialize RAG pipeline: {e}")
-            raise
-    
+            logger.error(f"An error occurred during PDF processing and vector store creation: {e}", exc_info=True)
+            self.is_initialized = False
+
     async def process_document(self, pdf_path: str) -> bool:
         """Process a PDF document into the knowledge base"""
         try:
@@ -86,9 +133,18 @@ class RAGPipeline:
                 logger.error("No text extracted from PDF")
                 return False
             
-            # Save extracted text for inspection
-            extracted_text_path = os.path.join(settings.PROCESSED_DATA_DIR, "extracted_text.txt")
+            # Save extracted text for inspection (enhanced version)
+            extracted_text_path = os.path.join(settings.PROCESSED_DATA_DIR, "enhanced_extracted_text.txt")
             self.pdf_processor.save_extracted_text(pages_data, extracted_text_path)
+            
+            # Log extraction statistics
+            if hasattr(self.pdf_processor, 'get_extraction_stats'):
+                stats = self.pdf_processor.get_extraction_stats(pages_data)
+                logger.info(f"Extraction Quality - Pages: {stats.get('total_pages', 0)}, "
+                           f"Avg Score: {stats.get('avg_quality_score', 0):.1f}, "
+                           f"Bengali Ratio: {stats.get('avg_bengali_ratio', 0):.1%}")
+            else:
+                logger.info(f"Extracted {len(pages_data)} pages from PDF")
             
             # Step 2: Clean and preprocess text
             preprocessed_pages = self.text_cleaner.preprocess_document(pages_data)
@@ -164,6 +220,18 @@ class RAGPipeline:
                 conversation_history=recent_queries,
                 k=settings.TOP_K_RETRIEVAL
             )
+
+            # If no relevant context is found, return a specific message
+            if not retrieval_result or not retrieval_result["sources"]:
+                logger.warning(f"No relevant documents found for query: {query}")
+                answer = "দুঃখিত, এই বিষয়ে আমার কাছে কোনো তথ্য নেই।" if language == "bn" else "Sorry, I don't have any information on this topic."
+                self.memory.add_exchange(session_id, query, answer)
+                return {
+                    "answer": answer,
+                    "sources": [],
+                    "session_id": session_id,
+                    "language_detected": language,
+                }
             
             # Generate response using LLM
             response = self.llm_client.generate_response(
@@ -184,7 +252,7 @@ class RAGPipeline:
                 "language_detected": language,
                 "retrieval_stats": {
                     "chunks_found": retrieval_result["total_chunks"],
-                    "avg_similarity": retrieval_result["avg_similarity"]
+                    "avg_score": retrieval_result["avg_score"]
                 }
             }
             

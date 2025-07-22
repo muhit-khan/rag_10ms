@@ -1,52 +1,163 @@
 import re
 from typing import List, Dict
 import logging
+import unicodedata
 
 from utils.helpers import clean_whitespace, detect_language, is_valid_text_chunk
 
 logger = logging.getLogger(__name__)
 
 class BengaliTextCleaner:
-    """Clean and preprocess Bengali and English text"""
+    """Enhanced Bengali and English text cleaner with OCR error correction"""
     
     def __init__(self):
         # Bengali-specific patterns
         self.bangla_sentence_delims = ['।', '!', '?', '\n\n']
         
-        # OCR error patterns for Bengali
+        # Enhanced OCR error corrections for Bengali
         self.ocr_corrections = {
-            # Common OCR mistakes in Bengali
+            # Common OCR mistakes in Bengali characters
             'ৈ': 'ে',  # Fix vowel marks
             'ৌ': 'ো',
             '।।': '।',  # Duplicate sentence endings
             '??': '?',
             '!!': '!',
+            
+            # Character confusion fixes
+            'অা': 'আ',  # Combine A + AA = AA
+            'েি': 'ৈ',  # e + i = ai
+            'েো': 'ৌ',  # e + o = ou
+            
+            # Common word-level corrections
+            'অনুপমম': 'অনুপম',
+            'কল্যানী': 'কল্যাণী',
+            'কল্যানি': 'কল্যাণী',
+            'সম্পত্তি': 'সম্পত্তি',
+            'সমপত্তি': 'সম্পত্তি',
+            'বিযে': 'বিয়ে',
+            'বিয়ের': 'বিয়ে',
+            'শমভুনাথ': 'শম্ভুনাথ',
+            'সমভুনাথ': 'শম্ভুনাথ',
         }
         
-        # Noise patterns to remove
+        # Enhanced noise patterns to remove
         self.noise_patterns = [
-            r'\s+',  # Multiple whitespace
-            r'[^\u0980-\u09FF\u0020-\u007E\u00A0-\u00FF\n\r।!?.,;:]',  # Invalid chars
+            r'[^\u0980-\u09FF\u0020-\u007E\u00A0-\u00FF\n\r।!?.,;:()\[\]"\'-]',  # Keep only valid chars
             r'(?<=[।!?])\s*(?=[।!?])',  # Duplicate punctuation spaces
+            r'\s*([।!?])\s*\1+\s*',  # Multiple same punctuation
+            r'^\s*[\-_=~]+\s*$',  # Lines with only symbols
+            r'Page\s*\d+',  # Page numbers
+            r'\d+\s*।',  # Numbers before Bengali period (likely page numbers)
         ]
+        
+        # Bengali word validation patterns
+        self.valid_bengali_word_pattern = re.compile(r'^[\u0980-\u09FF]+$')
+        
+        # Common Bengali stopwords and important words for content validation
+        self.bengali_content_words = {
+            'অনুপম', 'কল্যাণী', 'শম্ভুনাথ', 'বিয়ে', 'সম্পত্তি', 'বয়স', 'পিতা', 'মা', 'ভাই', 'বোন',
+            'গল্প', 'উপন্যাস', 'চরিত্র', 'ঘটনা', 'সময়', 'বছর', 'দিন', 'রাত', 'সকাল', 'বিকাল',
+            'বলা', 'বলে', 'বলেন', 'বললেন', 'জানা', 'জানে', 'জানেন', 'জানালেন', 'হওয়া', 'হয়', 'হল',
+            'করা', 'করে', 'করেন', 'করলেন', 'দেওয়া', 'দেয়', 'দেন', 'দিলেন', 'নেওয়া', 'নেয়', 'নিলেন'
+        }
+    
+    def fix_unicode_issues(self, text: str) -> str:
+        """Fix Unicode normalization issues"""
+        # Normalize Unicode to canonical form
+        text = unicodedata.normalize('NFC', text)
+        
+        # Fix common Unicode issues in Bengali
+        text = text.replace('\u200c', '')  # Remove zero-width non-joiner
+        text = text.replace('\u200d', '')  # Remove zero-width joiner if misplaced
+        text = text.replace('\ufeff', '')  # Remove BOM
+        
+        return text
     
     def fix_ocr_errors(self, text: str) -> str:
         """Fix common OCR errors in Bengali text"""
+        # Apply character-level corrections
         for wrong, correct in self.ocr_corrections.items():
             text = text.replace(wrong, correct)
+        
+        # Fix common spacing issues around Bengali characters
+        text = re.sub(r'([।!?])\s*([।!?])', r'\1 \2', text)  # Space between different punct
+        text = re.sub(r'([।!?])\1+', r'\1', text)  # Remove duplicate punctuation
+        
         return text
     
     def normalize_punctuation(self, text: str) -> str:
-        """Normalize Bengali punctuation"""
+        """Enhanced Bengali punctuation normalization"""
         # Fix multiple sentence delimiters
         text = re.sub(r'[।]{2,}', '।', text)
         text = re.sub(r'[!]{2,}', '!', text)
         text = re.sub(r'[?]{2,}', '?', text)
         
         # Ensure proper spacing after punctuation
-        text = re.sub(r'([।!?])([^\s])', r'\1 \2', text)
+        text = re.sub(r'([।!?,;:])([^\s\n])', r'\1 \2', text)
+        
+        # Fix spacing before punctuation (remove extra spaces)
+        text = re.sub(r'\s+([।!?,;:])', r'\1', text)
+        
+        # Handle quotation marks
+        text = re.sub(r'[""]', '"', text)
+        text = re.sub(r'['']', "'", text)
         
         return text
+    
+    def remove_noise(self, text: str) -> str:
+        """Remove noise patterns from text"""
+        original_length = len(text)
+        
+        for pattern in self.noise_patterns:
+            text = re.sub(pattern, ' ', text)
+        
+        # Additional noise removal
+        text = re.sub(r'^[\s\-_=~]*$', '', text, flags=re.MULTILINE)  # Empty decorative lines
+        text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)  # Max 2 newlines
+        text = re.sub(r'[ \t]+', ' ', text)  # Multiple spaces to single space
+        
+        cleaned_length = len(text)
+        if original_length > 0 and (original_length - cleaned_length) / original_length > 0.5:
+            logger.warning(f"Removed {(original_length - cleaned_length) / original_length:.1%} of text as noise")
+        
+        return text.strip()
+    
+    def validate_bengali_content(self, text: str) -> Dict[str, float]:
+        """Validate and score Bengali content quality"""
+        if not text:
+            return {"quality_score": 0.0, "bengali_ratio": 0.0, "content_words": 0}
+        
+        words = text.split()
+        if not words:
+            return {"quality_score": 0.0, "bengali_ratio": 0.0, "content_words": 0}
+        
+        # Count Bengali characters
+        bengali_chars = len(re.findall(r'[\u0980-\u09FF]', text))
+        total_chars = len(text.replace(' ', '').replace('\n', ''))
+        bengali_ratio = bengali_chars / total_chars if total_chars > 0 else 0
+        
+        # Count content words
+        content_words = sum(1 for word in words if word in self.bengali_content_words)
+        content_word_ratio = content_words / len(words) if words else 0
+        
+        # Count valid Bengali words (containing Bengali characters)
+        valid_bengali_words = sum(1 for word in words if re.search(r'[\u0980-\u09FF]', word))
+        valid_word_ratio = valid_bengali_words / len(words) if words else 0
+        
+        # Calculate quality score (0-100)
+        quality_score = (
+            bengali_ratio * 40 +  # Bengali character ratio
+            content_word_ratio * 30 +  # Important content words
+            valid_word_ratio * 30  # Valid Bengali words
+        ) * 100
+        
+        return {
+            "quality_score": min(100.0, quality_score),
+            "bengali_ratio": bengali_ratio,
+            "content_words": content_words,
+            "valid_bengali_words": valid_bengali_words,
+            "total_words": len(words)
+        }
     
     def clean_text(self, text: str) -> str:
         """Main text cleaning method"""

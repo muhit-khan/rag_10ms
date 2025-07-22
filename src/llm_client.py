@@ -90,8 +90,11 @@ class LLMClient:
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
                     ],
-                    temperature=0.1,
-                    max_tokens=500
+                    temperature=0.0,  # Zero temperature for factual responses
+                    max_tokens=150,   # Shorter responses to prevent hallucination
+                    top_p=0.1,        # Very focused responses
+                    frequency_penalty=0.0,
+                    presence_penalty=0.0
                 )
                 
                 content = response.choices[0].message.content
@@ -107,31 +110,39 @@ class LLMClient:
     def _build_system_prompt(self, language: str) -> str:
         """Build system prompt for the LLM"""
         if language == "bn":
-            return """আপনি একজন বাংলা সাহিত্যের বিশেষজ্ঞ AI সহায়ক যিনি 'অপরিচিতা' গল্প সম্পর্কে গভীর জ্ঞান রাখেন। আপনার কাজ হল:
+            return """আপনি একটি কঠোর নিয়মাবলী অনুসরণকারী AI সহায়ক। আপনার একমাত্র কাজ হল:
 
-1. প্রদত্ত প্রসঙ্গ (context) থেকে প্রশ্নের সঠিক উত্তর খুঁজে বের করা
-2. উত্তর সংক্ষিপ্ত, সুনির্দিষ্ট এবং সঠিক হতে হবে
-3. চরিত্রের নাম, বয়স, সম্পর্ক ইত্যাদি সুনির্দিষ্ট তথ্যে ফোকাস করুন
-4. যদি প্রসঙ্গে সরাসরি উত্তর না থাকে, সম্পর্কিত তথ্য থেকে উত্তর অনুমান করুন
-5. সর্বদা বাংলায় উত্তর দিন
+CRITICAL RULES (অবশ্যই মেনে চলুন):
+1. শুধুমাত্র প্রদত্ত CONTEXT থেকে সরাসরি উদ্ধৃত তথ্য ব্যবহার করুন
+2. কোনো অনুমান করবেন না, কোনো অতিরিক্ত জ্ঞান যোগ করবেন না
+3. Context-এ উত্তর না থাকলে বলুন "প্রদত্ত তথ্যে এই প্রশ্নের উত্তর নেই"
+4. উত্তর সংক্ষিপ্ত রাখুন (সর্বোচ্চ ২-৩ বাক্য)
+5. নাম, সংখ্যা, বয়স হুবহু Context থেকে কপি করুন
 
-বিশেষ নির্দেশনা:
-- অনুপমের সাথে সম্পর্কিত চরিত্রদের নাম সঠিকভাবে চিহ্নিত করুন
-- বয়স, সময়কাল এর মতো সংখ্যাগত তথ্য খুবই গুরুত্বপূর্ণ
-- শুধুমাত্র প্রদত্ত প্রসঙ্গের তথ্য ব্যবহার করুন, বাইরের জ্ঞান মিশাবেন না"""
+FORBIDDEN (নিষিদ্ধ):
+- Context-এর বাইরের কোনো তথ্য
+- অনুমান বা ধারণা
+- "সম্ভবত", "মনে হয়", "হতে পারে" জাতীয় শব্দ
+- দীর্ঘ ব্যাখ্যা
+
+FORMAT: শুধু সরাসরি উত্তর দিন, অতিরিক্ত কথা নয়।"""
         else:
-            return """You are a Bengali literature expert AI assistant with deep knowledge of the story 'Oporichita'. Your tasks:
+            return """You are a strictly rule-following AI assistant. Your ONLY job is:
 
-1. Find accurate answers from the provided context
-2. Keep answers concise, specific, and accurate  
-3. Focus on specific details like character names, ages, relationships
-4. If direct answer isn't in context, infer from related information
-5. Always respond in the same language as the question
+CRITICAL RULES (Must follow):
+1. Use ONLY information directly quoted from the provided CONTEXT
+2. NO assumptions, NO additional knowledge
+3. If answer not in context, say "The answer is not available in the provided information"
+4. Keep answers brief (maximum 2-3 sentences)
+5. Copy names, numbers, ages exactly from context
 
-Special instructions:
-- Correctly identify character names related to Anupam
-- Numerical information like ages and time periods are crucial
-- Only use information from the provided context, don't mix external knowledge"""
+FORBIDDEN:
+- Any information outside the context
+- Assumptions or guesses
+- Words like "probably", "seems", "might be"
+- Long explanations
+
+FORMAT: Give direct answer only, no extra commentary."""
     
     def _build_user_prompt(self, 
                           query: str, 
@@ -142,35 +153,26 @@ Special instructions:
         
         prompt_parts = []
         
-        # Add conversation history if available
-        if conversation_history and len(conversation_history) > 0:
-            if language == "bn":
-                prompt_parts.append("পূর্ববর্তী কথোপকথন:")
-            else:
-                prompt_parts.append("Previous conversation:")
-            
-            for exchange in conversation_history[-2:]:  # Last 2 exchanges
-                prompt_parts.append(f"প্রশ্ন: {exchange['user_query']}")
-                prompt_parts.append(f"উত্তর: {exchange['assistant_response']}")
-        
-        # Add context with better formatting
+        # Add context with strict instructions
         if language == "bn":
             prompt_parts.extend([
-                "\n=== প্রাসঙ্গিক তথ্য ===",
+                "=== CONTEXT (একমাত্র তথ্যের উৎস) ===",
                 context,
-                f"\n=== প্রশ্ন ===",
+                "\n=== INSTRUCTION ===",
+                "উপরের CONTEXT থেকে নিচের প্রশ্নের উত্তর খুঁজুন। Context-এ না থাকলে 'প্রদত্ত তথ্যে এই প্রশ্নের উত্তর নেই' বলুন।",
+                f"\n=== QUESTION ===",
                 query,
-                "\n=== উত্তর ===",
-                "প্রাসঙ্গিক তথ্যের ভিত্তিতে সঠিক ও সংক্ষিপ্ত উত্তর:"
+                "\n=== ANSWER (Context থেকে সরাসরি) ===",
             ])
         else:
             prompt_parts.extend([
-                "\n=== Relevant Information ===",
+                "=== CONTEXT (Only source of information) ===",
                 context,
-                f"\n=== Question ===", 
+                "\n=== INSTRUCTION ===",
+                "Find answer to the question below from the CONTEXT above. If not in context, say 'The answer is not available in the provided information.'",
+                f"\n=== QUESTION ===", 
                 query,
-                "\n=== Answer ===",
-                "Based on the relevant information, provide accurate and concise answer:"
+                "\n=== ANSWER (Direct from context) ===",
             ])
         
         return "\n".join(prompt_parts)

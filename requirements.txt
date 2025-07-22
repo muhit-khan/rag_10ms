@@ -1,209 +1,210 @@
 # Core Web Framework
-fastapi==0.104.1
-uvicorn==0.24.0
-starlette==0.27.0
-python-multipart==0.0.6
+fastapi
+uvicorn
+starlette
+python-multipart
 
 # Data Models & Validation
-pydantic==2.11.7
-pydantic-settings==2.1.0
-pydantic_core==2.33.2
+pydantic
+pydantic-settings
+pydantic_core
 
 # HTTP & Networking
-httpx==0.25.2
-httpcore==1.0.9
-httptools==0.6.4
-requests==2.32.4
-requests-oauthlib==2.0.0
-aiohttp==3.12.14
-aiohappyeyeballs==2.6.1
-aiosignal==1.4.0
-anyio==3.7.1
-h11==0.16.0
-websocket-client==1.8.0
-websockets==15.0.1
+httpx
+httpcore
+httptools
+requests
+requests-oauthlib
+aiohttp
+aiohappyeyeballs
+aiosignal
+anyio
+h11
+websocket-client
+websockets
 
 # Scientific Computing & ML
-numpy==1.26.4
-pandas==2.3.1
-scipy==1.16.0
-scikit-learn==1.7.1
-torch==2.7.1
-safetensors==0.5.3
-sympy==1.14.0
-networkx==3.5
+numpy
+pandas
+scipy
+scikit-learn
+torch
+safetensors
+sympy
+networkx
 
 # NLP & Text Processing
-sentence-transformers==5.0.0
-transformers==4.53.2
-tokenizers==0.21.2
-huggingface-hub==0.33.4
-nltk==3.8.1
-regex==2024.11.6
-indic-nlp-library==0.81
-Morfessor==2.0.6
+spacy
+sentence-transformers
+transformers
+tokenizers
+huggingface-hub
+nltk
+regex
+indic-nlp-library
+Morfessor
 
 # Vector Database & Storage
-chromadb==0.4.18
-chroma-hnswlib==0.7.3
-onnxruntime==1.22.1
-mmh3==5.1.0
-SQLAlchemy==2.0.41
+chromadb
+chroma-hnswlib
+onnxruntime
+mmh3
+SQLAlchemy
 
 # LLM Integration
-openai==1.3.0
-langchain==0.0.340
-langchain-community==0.0.1
-langchain-core==0.0.13
-langsmith==0.0.92
+openai
+langchain
+langchain-community
+langchain-core
+langsmith
 
 # PDF Processing
-pdfplumber==0.10.3
-pdfminer.six==20221105
-pypdfium2==4.30.0
-PyPDF2==3.0.1
-PyMuPDF==1.26.3
-pillow==11.3.0
+pdfplumber
+pdfminer.six
+pypdfium2
+PyPDF2
+PyMuPDF
+pillow
 
 # Configuration & Environment
-python-dotenv==1.0.0
-PyYAML==6.0.2
-python-dateutil==2.9.0.post0
-pytz==2025.2
-tzdata==2025.2
+python-dotenv
+PyYAML
+python-dateutil
+pytz
+tzdata
 
 # Telemetry & Monitoring
-opentelemetry-api==1.35.0
-opentelemetry-exporter-otlp-proto-common==1.35.0
-opentelemetry-exporter-otlp-proto-grpc==1.35.0
-opentelemetry-instrumentation==0.56b0
-opentelemetry-instrumentation-asgi==0.56b0
-opentelemetry-instrumentation-fastapi==0.56b0
-opentelemetry-proto==1.35.0
-opentelemetry-sdk==1.35.0
-opentelemetry-semantic-conventions==0.56b0
-opentelemetry-util-http==0.56b0
-posthog==6.1.1
+opentelemetry-api
+opentelemetry-exporter-otlp-proto-common
+opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-instrumentation
+opentelemetry-instrumentation-asgi
+opentelemetry-instrumentation-fastapi
+opentelemetry-proto
+opentelemetry-sdk
+opentelemetry-semantic-conventions
+opentelemetry-util-http
+posthog
 
 # Cloud & Infrastructure
-kubernetes==33.1.0
-google-auth==2.40.3
-googleapis-common-protos==1.70.0
-pulsar-client==3.8.0
-grpcio==1.73.1
+kubernetes
+google-auth
+googleapis-common-protos
+pulsar-client
+grpcio
 
 # Security & Cryptography
-bcrypt==4.3.0
-cryptography==45.0.5
-oauthlib==3.3.1
-pyasn1==0.6.1
-pyasn1_modules==0.4.2
-rsa==4.9.1
-cachetools==5.5.2
+bcrypt
+cryptography
+oauthlib
+pyasn1
+pyasn1_modules
+rsa
+cachetools
 
 # Utilities & Helpers
-tqdm==4.66.1
-click==8.2.1
-typer==0.16.0
-rich==14.0.0
-colorama==0.4.6
-coloredlogs==15.0.1
-humanfriendly==10.0
-shellingham==1.5.4
-tenacity==8.5.0
-backoff==2.2.1
-durationpy==0.10
-overrides==7.7.0
+tqdm
+click
+typer
+rich
+colorama
+coloredlogs
+humanfriendly
+shellingham
+tenacity
+backoff
+durationpy
+overrides
 
 # Data Processing & Serialization
-marshmallow==3.26.1
-dataclasses-json==0.6.7
-jsonpatch==1.33
-jsonpointer==3.0.0
-PyPika==0.48.9
-protobuf==6.31.1
-flatbuffers==25.2.10
+marshmallow
+dataclasses-json
+jsonpatch
+jsonpointer
+PyPika
+protobuf
+flatbuffers
 
 # Type Checking & Validation
-typing_extensions==4.14.1
-typing-inspect==0.9.0
-typing-inspection==0.4.1
-annotated-types==0.7.0
+typing_extensions
+typing-inspect
+typing-inspection
+annotated-types
 
 # File & System Operations
-filelock==3.18.0
-watchfiles==1.1.0
-fsspec==2025.7.0
-pathspec==0.12.1
+filelock
+watchfiles
+fsspec
+pathspec
 
 # Web & Markup
-Jinja2==3.1.6
-MarkupSafe==3.0.2
-markdown-it-py==3.0.0
-mdurl==0.1.2
-asgiref==3.9.1
+Jinja2
+MarkupSafe
+markdown-it-py
+mdurl
+asgiref
 
 # Development Tools
-black==23.11.0
-pytest==7.4.3
-pytest-asyncio==0.21.1
-mypy_extensions==1.1.0
+black
+pytest
+pytest-asyncio
+mypy_extensions
 
 # Documentation
-Sphinx==8.2.3
-sphinx-argparse==0.5.2
-sphinx-rtd-theme==3.0.2
-sphinxcontrib-applehelp==2.0.0
-sphinxcontrib-devhelp==2.0.0
-sphinxcontrib-htmlhelp==2.1.0
-sphinxcontrib-jquery==4.1
-sphinxcontrib-jsmath==1.0.1
-sphinxcontrib-qthelp==2.0.0
-sphinxcontrib-serializinghtml==2.0.0
-alabaster==1.0.0
-babel==2.17.0
-docutils==0.21.2
-imagesize==1.4.1
-snowballstemmer==3.0.1
-Pygments==2.19.2
+Sphinx
+sphinx-argparse
+sphinx-rtd-theme
+sphinxcontrib-applehelp
+sphinxcontrib-devhelp
+sphinxcontrib-htmlhelp
+sphinxcontrib-jquery
+sphinxcontrib-jsmath
+sphinxcontrib-qthelp
+sphinxcontrib-serializinghtml
+alabaster
+babel
+docutils
+imagesize
+snowballstemmer
+Pygments
 
 # Core Python Extensions
-setuptools==80.9.0
-wheel==0.45.1
-packaging==23.2
-six==1.17.0
-platformdirs==4.3.8
-pluggy==1.6.0
-iniconfig==2.1.0
+setuptools
+wheel
+packaging
+six
+platformdirs
+pluggy
+iniconfig
 
 # System & Network Utilities
-certifi==2025.7.14
-charset-normalizer==3.4.2
-urllib3==2.5.0
-idna==3.10
-sniffio==1.3.1
-distro==1.9.0
-cffi==1.17.1
-pycparser==2.22
-pyreadline3==3.5.4
+certifi
+charset-normalizer
+urllib3
+idna
+sniffio
+distro
+cffi
+pycparser
+pyreadline3
 
 # Threading & Concurrency
-joblib==1.5.1
-threadpoolctl==3.6.0
-greenlet==3.2.3
-wrapt==1.17.2
+joblib
+threadpoolctl
+greenlet
+wrapt
 
 # Data Structures & Collections
-attrs==25.3.0
-frozenlist==1.7.0
-multidict==6.6.3
-propcache==0.3.2
-yarl==1.20.1
+attrs
+frozenlist
+multidict
+propcache
+yarl
 
 # Import & Metadata
-importlib_metadata==8.7.0
-importlib_resources==6.5.2
-zipp==3.23.0
+importlib_metadata
+importlib_resources
+zipp
 
 # Miscellaneous
-roman-numerals-py==3.1.0
+roman-numerals-py

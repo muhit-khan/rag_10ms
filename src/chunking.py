@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional
 import logging
 import math
+import re
 
 from utils.helpers import is_valid_text_chunk
 
@@ -12,123 +13,86 @@ class DocumentChunker:
     def __init__(self, chunk_size: int = 512, overlap: int = 50):
         self.chunk_size = chunk_size
         self.overlap = overlap
-        
-    def chunk_by_sentences(self, sentences: List[str], metadata: Dict) -> List[Dict]:
-        """Chunk text by grouping sentences"""
-        if not sentences:
-            return []
-        
-        chunks = []
-        current_chunk = ""
-        current_sentences = []
-        
-        for sentence in sentences:
-            # Calculate potential chunk size
-            potential_chunk = current_chunk + " " + sentence if current_chunk else sentence
-            potential_word_count = len(potential_chunk.split())
-            
-            if potential_word_count <= self.chunk_size:
-                current_chunk = potential_chunk
-                current_sentences.append(sentence)
-            else:
-                # Save current chunk if it's valid
-                if current_chunk and is_valid_text_chunk(current_chunk):
-                    chunks.append({
-                        "text": current_chunk.strip(),
-                        "sentences": current_sentences.copy(),
-                        "word_count": len(current_chunk.split()),
-                        "metadata": metadata
-                    })
-                
-                # Start new chunk with overlap
-                if self.overlap > 0 and current_sentences:
-                    overlap_sentences = current_sentences[-self.overlap:]
-                    current_chunk = " ".join(overlap_sentences) + " " + sentence
-                    current_sentences = overlap_sentences + [sentence]
-                else:
-                    current_chunk = sentence
-                    current_sentences = [sentence]
-        
-        # Add final chunk
-        if current_chunk and is_valid_text_chunk(current_chunk):
-            chunks.append({
-                "text": current_chunk.strip(),
-                "sentences": current_sentences,
-                "word_count": len(current_chunk.split()),
-                "metadata": metadata
-            })
-        
-        return chunks
-    
-    def chunk_by_paragraphs(self, paragraphs: List[str], metadata: Dict) -> List[Dict]:
-        """Chunk text by paragraphs with smart splitting"""
-        if not paragraphs:
-            return []
-        
-        chunks = []
-        
-        for para_idx, paragraph in enumerate(paragraphs):
-            para_word_count = len(paragraph.split())
-            
-            if para_word_count <= self.chunk_size:
-                # Paragraph fits in one chunk
-                chunks.append({
-                    "text": paragraph,
-                    "word_count": para_word_count,
-                    "paragraph_index": para_idx,
-                    "metadata": metadata
-                })
-            else:
-                # Split large paragraph into smaller chunks
-                words = paragraph.split()
-                
-                for i in range(0, len(words), self.chunk_size - self.overlap):
-                    chunk_words = words[i:i + self.chunk_size]
-                    chunk_text = " ".join(chunk_words)
-                    
-                    if is_valid_text_chunk(chunk_text):
-                        chunks.append({
-                            "text": chunk_text,
-                            "word_count": len(chunk_words),
-                            "paragraph_index": para_idx,
-                            "chunk_part": i // (self.chunk_size - self.overlap),
-                            "metadata": metadata
-                        })
-        
-        return chunks
-    
-    def chunk_by_sliding_window(self, text: str, metadata: Dict) -> List[Dict]:
-        """Create overlapping chunks using sliding window"""
+
+    def semantic_chunk_text(self, text: str, metadata: Dict) -> List[Dict]:
+        """
+        Chunks text by splitting it into paragraphs and then sentences,
+        grouping them to respect the chunk size without needing a heavy model.
+        """
         if not text:
             return []
-        
-        words = text.split()
-        if len(words) <= self.chunk_size:
-            return [{
-                "text": text,
-                "word_count": len(words),
-                "metadata": metadata
-            }]
-        
+
         chunks = []
-        step_size = self.chunk_size - self.overlap
+        current_chunk_text = ""
         
-        for i in range(0, len(words), step_size):
-            chunk_words = words[i:i + self.chunk_size]
-            chunk_text = " ".join(chunk_words)
+        # Split text into paragraphs first.
+        paragraphs = text.split('\n\n')
+
+        for para in paragraphs:
+            para = para.strip()
+            if not para:
+                continue
+
+            # If the paragraph is larger than the chunk size, split it into sentences.
+            if len(para.split()) > self.chunk_size:
+                # Add the existing chunk before processing the large paragraph
+                if is_valid_text_chunk(current_chunk_text):
+                    chunks.append({
+                        "text": current_chunk_text.strip(),
+                        "word_count": len(current_chunk_text.split()),
+                        "metadata": metadata
+                    })
+                current_chunk_text = ""
+
+                # Simple sentence splitting
+                sentences = re.split(r'(?<=[.!?।])\s+', para)
+                sentence_group = ""
+                for sent in sentences:
+                    if len(sentence_group.split()) + len(sent.split()) <= self.chunk_size:
+                        sentence_group += " " + sent
+                    else:
+                        if is_valid_text_chunk(sentence_group):
+                            chunks.append({
+                                "text": sentence_group.strip(),
+                                "word_count": len(sentence_group.split()),
+                                "metadata": metadata
+                            })
+                        sentence_group = sent
+                
+                # Add the last sentence group
+                if is_valid_text_chunk(sentence_group):
+                    chunks.append({
+                        "text": sentence_group.strip(),
+                        "word_count": len(sentence_group.split()),
+                        "metadata": metadata
+                    })
+
+            # If the paragraph fits, add it to the current chunk.
+            elif len(current_chunk_text.split()) + len(para.split()) <= self.chunk_size:
+                current_chunk_text += "\n\n" + para
             
-            if is_valid_text_chunk(chunk_text):
-                chunks.append({
-                    "text": chunk_text,
-                    "word_count": len(chunk_words),
-                    "chunk_index": i // step_size,
-                    "metadata": metadata
-                })
-        
+            # Otherwise, this paragraph starts a new chunk.
+            else:
+                if is_valid_text_chunk(current_chunk_text):
+                    chunks.append({
+                        "text": current_chunk_text.strip(),
+                        "word_count": len(current_chunk_text.split()),
+                        "metadata": metadata
+                    })
+                current_chunk_text = para
+
+        # Add the final remaining chunk
+        if is_valid_text_chunk(current_chunk_text):
+            chunks.append({
+                "text": current_chunk_text.strip(),
+                "word_count": len(current_chunk_text.split()),
+                "metadata": metadata
+            })
+            
         return chunks
-    
-    def chunk_page(self, page_data: Dict, strategy: str = "sentences") -> List[Dict]:
-        """Chunk a single page using specified strategy"""
+
+    def chunk_page(self, page_data: Dict, strategy: str = "semantic") -> List[Dict]:
+        """Chunk a single page using the semantic strategy"""
         if not page_data:
             return []
         
@@ -138,27 +102,17 @@ class DocumentChunker:
             "source": "HSC26_Bangla_1st_paper"
         }
         
+        text = page_data.get("cleaned_text", page_data.get("text", ""))
+
         try:
-            if strategy == "sentences" and page_data.get("sentences"):
-                return self.chunk_by_sentences(page_data["sentences"], page_metadata)
-                
-            elif strategy == "paragraphs" and page_data.get("paragraphs"):
-                return self.chunk_by_paragraphs(page_data["paragraphs"], page_metadata)
-                
-            elif strategy == "sliding_window":
-                text = page_data.get("cleaned_text", page_data.get("text", ""))
-                return self.chunk_by_sliding_window(text, page_metadata)
-            
-            else:
-                # Fallback to sliding window on cleaned text
-                text = page_data.get("cleaned_text", page_data.get("text", ""))
-                return self.chunk_by_sliding_window(text, page_metadata)
+            # Only semantic chunking is supported now.
+            return self.semantic_chunk_text(text, page_metadata)
                 
         except Exception as e:
             logger.error(f"Error chunking page {page_data.get('page')}: {e}")
             return []
-    
-    def chunk_document(self, preprocessed_pages: List[Dict], strategy: str = "sentences") -> List[Dict]:
+
+    def chunk_document(self, preprocessed_pages: List[Dict], strategy: str = "semantic") -> List[Dict]:
         """Chunk entire document"""
         if not preprocessed_pages:
             logger.warning("No pages to chunk")
