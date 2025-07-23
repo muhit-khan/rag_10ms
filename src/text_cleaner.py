@@ -42,7 +42,7 @@ class BengaliTextCleaner:
         
         # Enhanced noise patterns to remove
         self.noise_patterns = [
-            r'[^\u0980-\u09FF\u0020-\u007E\u00A0-\u00FF\n\r।!?.,;:()\[\]"\'-]',  # Keep only valid chars
+            r'[^\u0980-\u09FF\u0020-\u007E\u00A0-\u00FF\n\r।!?.,;:()\[\]"\'\-]',  # Keep only valid chars (moved - to end and escaped)
             r'(?<=[।!?])\s*(?=[।!?])',  # Duplicate punctuation spaces
             r'\s*([।!?])\s*\1+\s*',  # Multiple same punctuation
             r'^\s*[\-_=~]+\s*$',  # Lines with only symbols

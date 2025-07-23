@@ -138,53 +138,72 @@ class BengaliPDFProcessor:
             "reason": "good_quality" if quality_score > 50 else "low_quality"
         }
     
+    def _extract_from_text_dict(self, text_dict: Dict, font_file: str = "utils/fonts/kalpurush.ttf") -> str:
+        """Extract text from PyMuPDF text dictionary, prioritizing Bengali font spans."""
+        text_parts = []
+        # Load font name from the font file for matching
+        font_name_hint = "kalpurush"
+        try:
+            import os
+            if os.path.exists(font_file):
+                font_name_hint = os.path.splitext(os.path.basename(font_file))[0].lower()
+        except Exception:
+            pass
+
+        bengali_font_hints = ["bengali", "bangla", font_name_hint, "solaimanlipi", "nikosh", "siyamrupali"]
+
+        for block in text_dict.get("blocks", []):
+            if "lines" not in block:
+                continue
+            for line in block["lines"]:
+                line_text = ""
+                for span in line.get("spans", []):
+                    span_text = span.get("text", "")
+                    font_name = span.get("font", "").lower()
+                    # Prioritize spans that match Bengali font hints
+                    if any(font_hint in font_name for font_hint in bengali_font_hints):
+                        line_text = span_text + " " + line_text  # Prepend Bengali font text
+                    else:
+                        line_text += span_text + " "
+                text_parts.append(line_text.strip())
+        return "\n".join(text_parts)
+
     def extract_with_enhanced_pymupdf(self, pdf_path: str) -> List[Dict]:
         """Enhanced PyMuPDF extraction with Bengali font handling"""
         if not PYMUPDF_AVAILABLE or fitz is None:
             logger.warning("PyMuPDF not available")
             return []
-            
         try:
             doc = fitz.open(pdf_path)
             pages_content = []
-            
             logger.info(f"Extracting text from {len(doc)} pages using Enhanced PyMuPDF")
-            
             for page_num in range(len(doc)):
                 page = doc.load_page(page_num)
-                
-                # Method 1: Try structured text extraction with font info
+                # Method 1: Try structured text extraction with font info and font file
                 text_dict = page.get_text("dict")
-                structured_text = self._extract_from_text_dict(text_dict)
-                
+                structured_text = self._extract_from_text_dict(text_dict, font_file="utils/fonts/kalpurush.ttf")
                 # Method 2: Try simple text extraction as fallback
                 simple_text = page.get_text()
-                
                 # Method 3: Try blocks extraction
                 blocks_text = page.get_text("blocks")
                 blocks_combined = " ".join([block[4] for block in blocks_text if len(block) > 4])
-                
                 # Choose best extraction
                 candidates = [
                     ("structured", structured_text),
                     ("simple", simple_text),
                     ("blocks", blocks_combined)
                 ]
-                
                 best_text = ""
                 best_score = 0
                 best_method = "none"
-                
                 for method, text in candidates:
                     if text:
                         normalized_text = self.normalize_bengali_text(text)
                         validation = self.validate_bengali_content(normalized_text)
-                        
                         if validation["score"] > best_score:
                             best_text = normalized_text
                             best_score = validation["score"]
                             best_method = method
-                
                 if best_text and best_score > 30:  # Minimum quality threshold
                     pages_content.append({
                         "page": page_num + 1,
@@ -195,113 +214,47 @@ class BengaliPDFProcessor:
                         "quality_score": best_score,
                         "bengali_ratio": self.validate_bengali_content(best_text)["bengali_ratio"]
                     })
-                    
                     logger.debug(f"Page {page_num + 1}: {best_method} method, score={best_score:.1f}")
                 else:
                     logger.warning(f"Page {page_num + 1}: Low quality text (score={best_score:.1f})")
-                    
             doc.close()
             logger.info(f"Successfully extracted {len(pages_content)} pages with Enhanced PyMuPDF")
             return pages_content
-            
         except Exception as e:
             logger.error(f"Enhanced PyMuPDF extraction failed: {e}")
             return []
     
-    def _extract_from_text_dict(self, text_dict: Dict) -> str:
-        """Extract text from PyMuPDF text dictionary with font consideration"""
-        text_parts = []
-        
-        for block in text_dict.get("blocks", []):
-            if "lines" not in block:
-                continue
-                
-            for line in block["lines"]:
-                line_text = ""
-                for span in line.get("spans", []):
-                    span_text = span.get("text", "")
-                    font_name = span.get("font", "").lower()
-                    
-                    # Prioritize spans that likely contain Bengali fonts
-                    if any(font_hint in font_name for font_hint in 
-                           ["bengali", "bangla", "kalpurush", "solaimanlipi", "nikosh", "siyamrupali"]):
-                        line_text = span_text + " " + line_text  # Prioritize Bengali fonts
-                    else:
-                        line_text += span_text + " "
-                        
-                text_parts.append(line_text.strip())
-                
-        return "\n".join(text_parts)
-    
     def extract_with_enhanced_pdfplumber(self, pdf_path: str) -> List[Dict]:
-        """Enhanced pdfplumber extraction with Bengali text validation"""
+        """Optimized Bengali extraction using pdfplumber and normalization."""
         try:
             pages_content = []
-            
             with pdfplumber.open(pdf_path) as pdf:
-                logger.info(f"Extracting text from {len(pdf.pages)} pages using Enhanced pdfplumber")
-                
+                logger.info(f"Extracting text from {len(pdf.pages)} pages using pdfplumber")
                 for page_num, page in enumerate(pdf.pages):
-                    # Try multiple extraction methods
-                    methods = []
-                    
-                    # Method 1: Standard text extraction
-                    standard_text = page.extract_text()
-                    if standard_text:
-                        methods.append(("standard", standard_text))
-                    
-                    # Method 2: Extract text with layout
-                    try:
-                        layout_text = page.extract_text(layout=True)
-                        if layout_text and layout_text != standard_text:
-                            methods.append(("layout", layout_text))
-                    except:
-                        pass
-                    
-                    # Method 3: Extract from words and reconstruct
-                    try:
-                        words = page.extract_words()
-                        if words:
-                            word_text = " ".join([word["text"] for word in words])
-                            methods.append(("words", word_text))
-                    except:
-                        pass
-                    
-                    # Choose best extraction
-                    best_text = ""
-                    best_score = 0
-                    best_method = "none"
-                    
-                    for method, text in methods:
-                        if text:
-                            normalized_text = self.normalize_bengali_text(text)
-                            validation = self.validate_bengali_content(normalized_text)
-                            
-                            if validation["score"] > best_score:
-                                best_text = normalized_text
-                                best_score = validation["score"]
-                                best_method = method
-                    
-                    if best_text and best_score > 30:
-                        pages_content.append({
-                            "page": page_num + 1,
-                            "text": best_text,
-                            "language": detect_language(best_text),
-                            "word_count": len(best_text.split()),
-                            "extraction_method": f"pdfplumber_{best_method}",
-                            "quality_score": best_score,
-                            "bengali_ratio": self.validate_bengali_content(best_text)["bengali_ratio"]
-                        })
-                        
-                        logger.debug(f"Page {page_num + 1}: {best_method} method, score={best_score:.1f}")
+                    text = page.extract_text()
+                    if text:
+                        normalized_text = self.normalize_bengali_text(text)
+                        validation = self.validate_bengali_content(normalized_text)
+                        score = validation["score"]
+                        if score > 30:
+                            pages_content.append({
+                                "page": page_num + 1,
+                                "text": normalized_text,
+                                "language": detect_language(normalized_text),
+                                "word_count": len(normalized_text.split()),
+                                "extraction_method": "pdfplumber_standard",
+                                "quality_score": score,
+                                "bengali_ratio": validation["bengali_ratio"]
+                            })
+                            logger.debug(f"Page {page_num + 1}: score={score:.1f}")
+                        else:
+                            logger.warning(f"Page {page_num + 1}: Low quality text (score={score:.1f})")
                     else:
-                        logger.warning(f"Page {page_num + 1}: Low quality text (score={best_score:.1f})")
-                        
-            logger.info(f"Successfully extracted {len(pages_content)} pages with Enhanced pdfplumber")
+                        logger.warning(f"Page {page_num + 1}: No text extracted")
+            logger.info(f"Successfully extracted {len(pages_content)} pages with pdfplumber")
             return pages_content
-            
         except Exception as e:
-            logger.error(f"Enhanced pdfplumber extraction failed: {e}")
+            logger.error(f"pdfplumber extraction failed: {e}")
             return []
     
     def extract_text(self, pdf_path: str, method: str = "auto") -> List[Dict]:
