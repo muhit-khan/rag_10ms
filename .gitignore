@@ -4,8 +4,8 @@ __pycache__/
 *.egg-info/
 *.egg
 .env
-.venv/
-venv/
+# .venv/
+# venv/
 *.ipynb_checkpoints/
 
 # Data and Models

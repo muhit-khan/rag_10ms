@@ -1,210 +1,28 @@
-# Core Web Framework
-fastapi
-uvicorn
-starlette
-python-multipart
+# Production dependencies
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+langchain==0.2.1
+chromadb==0.5.5
+openai==1.30.1
+tiktoken==0.6.0
+redis==5.0.4
+python-dotenv==1.0.1
+pydantic==2.7.1
+pydantic-settings==2.2.1
+duckdb==0.10.0
+pdfminer.six==20221105
+pytesseract==0.3.10
+pillow==10.3.0
+slowapi==0.1.7
+opentelemetry-sdk==1.26.0
+opentelemetry-exporter-otlp==1.26.0
+langsmith==0.1.35
+httpx==0.27.0
+python-multipart==0.0.9
+aiofiles==23.2.1
 
-# Data Models & Validation
-pydantic
-pydantic-settings
-pydantic_core
-
-# HTTP & Networking
-httpx
-httpcore
-httptools
-requests
-requests-oauthlib
-aiohttp
-aiohappyeyeballs
-aiosignal
-anyio
-h11
-websocket-client
-websockets
-
-# Scientific Computing & ML
-numpy
-pandas
-scipy
-scikit-learn
-torch
-safetensors
-sympy
-networkx
-
-# NLP & Text Processing
-spacy
-sentence-transformers
-transformers
-tokenizers
-huggingface-hub
-nltk
-regex
-indic-nlp-library
-Morfessor
-
-# Vector Database & Storage
-chromadb
-chroma-hnswlib
-onnxruntime
-mmh3
-SQLAlchemy
-
-# LLM Integration
-openai
-langchain
-langchain-community
-langchain-core
-langsmith
-
-# PDF Processing
-pdfplumber
-pdfminer.six
-pypdfium2
-PyPDF2
-PyMuPDF
-pillow
-
-# Configuration & Environment
-python-dotenv
-PyYAML
-python-dateutil
-pytz
-tzdata
-
-# Telemetry & Monitoring
-opentelemetry-api
-opentelemetry-exporter-otlp-proto-common
-opentelemetry-exporter-otlp-proto-grpc
-opentelemetry-instrumentation
-opentelemetry-instrumentation-asgi
-opentelemetry-instrumentation-fastapi
-opentelemetry-proto
-opentelemetry-sdk
-opentelemetry-semantic-conventions
-opentelemetry-util-http
-posthog
-
-# Cloud & Infrastructure
-kubernetes
-google-auth
-googleapis-common-protos
-pulsar-client
-grpcio
-
-# Security & Cryptography
-bcrypt
-cryptography
-oauthlib
-pyasn1
-pyasn1_modules
-rsa
-cachetools
-
-# Utilities & Helpers
-tqdm
-click
-typer
-rich
-colorama
-coloredlogs
-humanfriendly
-shellingham
-tenacity
-backoff
-durationpy
-overrides
-
-# Data Processing & Serialization
-marshmallow
-dataclasses-json
-jsonpatch
-jsonpointer
-PyPika
-protobuf
-flatbuffers
-
-# Type Checking & Validation
-typing_extensions
-typing-inspect
-typing-inspection
-annotated-types
-
-# File & System Operations
-filelock
-watchfiles
-fsspec
-pathspec
-
-# Web & Markup
-Jinja2
-MarkupSafe
-markdown-it-py
-mdurl
-asgiref
-
-# Development Tools
-black
-pytest
-pytest-asyncio
-mypy_extensions
-
-# Documentation
-Sphinx
-sphinx-argparse
-sphinx-rtd-theme
-sphinxcontrib-applehelp
-sphinxcontrib-devhelp
-sphinxcontrib-htmlhelp
-sphinxcontrib-jquery
-sphinxcontrib-jsmath
-sphinxcontrib-qthelp
-sphinxcontrib-serializinghtml
-alabaster
-babel
-docutils
-imagesize
-snowballstemmer
-Pygments
-
-# Core Python Extensions
-setuptools
-wheel
-packaging
-six
-platformdirs
-pluggy
-iniconfig
-
-# System & Network Utilities
-certifi
-charset-normalizer
-urllib3
-idna
-sniffio
-distro
-cffi
-pycparser
-pyreadline3
-
-# Threading & Concurrency
-joblib
-threadpoolctl
-greenlet
-wrapt
-
-# Data Structures & Collections
-attrs
-frozenlist
-multidict
-propcache
-yarl
-
-# Import & Metadata
-importlib_metadata
-importlib_resources
-zipp
-
-# Miscellaneous
-roman-numerals-py
+# Development & Testing
+ruff==0.4.4
+black==24.4.2
+pytest==8.2.0
+pytest-asyncio==0.23.7
