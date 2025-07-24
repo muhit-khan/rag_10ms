@@ -156,7 +156,7 @@ Ingest the corpus **once**:
 
 ```
 
-docker compose exec api python ingest/run.py
+docker compose exec api python -m ingest
 
 ```
 

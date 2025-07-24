@@ -2,15 +2,11 @@
 """
 Simplified ingestion pipeline for RAG system.
 
-This script provides a simplified version of the ingestion pipeline
+This module provides a simplified version of the ingestion pipeline
 that doesn't rely on ChromaDB or LangChain to avoid pydantic version conflicts.
 
 Usage:
-    python ingest/run.py [--clean] [--pdf_path PATH]
-
-Options:
-    --clean     Clear existing collection before ingestion
-    --pdf_path  Override the default PDF path from config
+    python -m ingest [--clean] [--pdf_path PATH]
 """
 import argparse
 import json
@@ -33,15 +29,16 @@ from ingest.metadata_extraction import extract_metadata
 from ingest.embedding import create_embeddings
 
 # Configure logging
+log_dir = Path("logs/ingest_logs")
+log_dir.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
-    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(f"simple_ingest_{time.strftime('%Y%m%d_%H%M%S')}.log"),
+        logging.FileHandler(f"logs/ingest_logs/ingest_{time.strftime('%Y%m%d_%H%M%S')}.log"),
     ],
 )
-logger = logging.getLogger("simple_ingest")
+logger = logging.getLogger("ingest")
 
 
 def setup_argparse() -> argparse.Namespace:

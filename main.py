@@ -31,7 +31,7 @@ from slowapi.util import get_remote_address
 from api.auth import AuthMiddleware
 from api.routers import router, limiter
 from config import config
-from ingest.run import find_pdf_files, process_pdf, create_embeddings
+from ingest import find_pdf_files, process_pdf, create_embeddings
 from db.chroma_client import get_collection
 from services.rag_service import RAGService
 

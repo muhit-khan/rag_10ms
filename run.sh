@@ -30,7 +30,7 @@ case "$CMD" in
     ;;
   ingest)
     echo "Running ingestion pipeline..."
-    python ingest/run.py
+    python -m ingest
     ;;
   test)
     echo "Running tests..."
