@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """
-Ingestion pipeline for RAG system.
+Simplified ingestion pipeline for RAG system.
 
-This script orchestrates the full ingestion process:
-1. Find all PDF files in the configured directory
-2. Extract text from each PDF
-3. Clean and normalize the text
-4. Split text into chunks
-5. Generate embeddings for each chunk
-6. Store chunks and embeddings in ChromaDB with metadata
+This script provides a simplified version of the ingestion pipeline
+that doesn't rely on ChromaDB or LangChain to avoid pydantic version conflicts.
 
 Usage:
     python ingest/run.py [--clean] [--pdf_path PATH]
@@ -18,13 +13,11 @@ Options:
     --pdf_path  Override the default PDF path from config
 """
 import argparse
-import glob
+import json
 import logging
 import os
-import re
 import sys
 import time
-import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -32,15 +25,12 @@ from openai import OpenAI
 from tqdm import tqdm
 
 from config import config
-from db.chroma_client import get_collection
 from ingest.chunk_loader import chunk_text
 from ingest.extract_text import extract_text_from_pdf
-# Modular pipeline imports (now directly from ingest/)
 from ingest.pdf_discovery import find_pdf_files
 from ingest.text_cleaning import clean_text
 from ingest.metadata_extraction import extract_metadata
 from ingest.embedding import create_embeddings
-from ingest.storage import store_chunks
 
 # Configure logging
 logging.basicConfig(
@@ -48,15 +38,15 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(f"ingest_{time.strftime('%Y%m%d_%H%M%S')}.log"),
+        logging.FileHandler(f"simple_ingest_{time.strftime('%Y%m%d_%H%M%S')}.log"),
     ],
 )
-logger = logging.getLogger("ingest")
+logger = logging.getLogger("simple_ingest")
 
 
 def setup_argparse() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Ingest PDFs into ChromaDB")
+    parser = argparse.ArgumentParser(description="Simplified PDF ingestion")
     parser.add_argument(
         "--clean",
         action="store_true",
@@ -68,7 +58,6 @@ def setup_argparse() -> argparse.Namespace:
         help=f"Path to PDF directory (default: {config.PDF_PATH})",
     )
     return parser.parse_args()
-
 
 
 def process_pdf(pdf_path: Path) -> Tuple[List[str], List[Dict[str, str]]]:
@@ -113,18 +102,46 @@ def process_pdf(pdf_path: Path) -> Tuple[List[str], List[Dict[str, str]]]:
         return [], []
 
 
+def store_to_json(chunks: List[str], embeddings: List, metadata_list: List[Dict], ids: List[str], output_dir: str):
+    """
+    Store chunks, embeddings, and metadata to JSON files.
+    """
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Store chunks and metadata
+    data = []
+    for i, (chunk, metadata, chunk_id) in enumerate(zip(chunks, metadata_list, ids)):
+        item = {
+            "id": chunk_id,
+            "chunk": chunk,
+            "metadata": metadata,
+            "embedding": embeddings[i] if i < len(embeddings) and embeddings[i] is not None else None
+        }
+        data.append(item)
+    
+    # Write to JSON file
+    output_file = output_path / "chunks.json"
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    
+    logger.info(f"Stored {len(data)} chunks to {output_file}")
+
+
 def main():
-    """Main entry point for ingestion pipeline."""
+    """Main entry point for simplified ingestion pipeline."""
     args = setup_argparse()
     pdf_path = args.pdf_path or config.PDF_PATH
     
-    # Get ChromaDB collection
-    collection = get_collection()
+    # Create output directory
+    output_dir = Path("data/processed/simple")
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Clear collection if requested
+    # Clear existing data if requested
     if args.clean:
-        logger.warning("Clearing existing collection")
-        collection.delete(where={})
+        logger.warning("Clearing existing data")
+        for file in output_dir.glob("*.json"):
+            file.unlink()
     
     # Find PDF files
     pdf_files = find_pdf_files(pdf_path)
@@ -167,10 +184,9 @@ def main():
         all_ids = [all_ids[i] for i in valid_indices]
         embeddings = [embeddings[i] for i in valid_indices]
     
-    # Store in ChromaDB using modularized storage helper
-    store_chunks(collection, all_chunks, embeddings, all_metadata, all_ids, batch_size=100)
+    # Store to JSON
+    store_to_json(all_chunks, embeddings, all_metadata, all_ids, str(output_dir))
     logger.info("Ingestion complete")
-    logger.info(f"Total documents: {collection.count()}")
 
 
 if __name__ == "__main__":
