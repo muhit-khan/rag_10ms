@@ -26,7 +26,7 @@ case "$CMD" in
     ;;
   api)
     echo "Starting FastAPI server..."
-    uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ;;
   ingest)
     echo "Running ingestion pipeline..."
