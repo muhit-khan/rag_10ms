@@ -9,7 +9,7 @@ __pycache__/
 *.ipynb_checkpoints/
 
 # Data and Models
-data/
+
 *.ckpt
 *.pt
 *.h5

@@ -18,9 +18,19 @@ from api.auth import Token, User, generate_test_token, get_current_user
 from config import config
 from services.rag_service import RAGService
 from services.eval_service import EvalService
+import os
 
 # Configure logging
+log_dir = "logs/api"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, "api.log")
+
 logger = logging.getLogger("api")
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(log_file)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 # Configure rate limiter
 limiter = Limiter(key_func=get_remote_address)
