@@ -68,7 +68,7 @@ def process_pdf(pdf_path: Path) -> Tuple[List[str], List[Dict[str, str]]]:
     try:
         # Extract text
         text = extract_text_from_pdf(str(pdf_path))
-        if not text.strip():
+        if not text or not text.strip():
             logger.warning(f"No text extracted from {pdf_path}")
             return [], []
         

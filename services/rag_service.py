@@ -1,10 +1,13 @@
 """
 RAG orchestration logic
 """
+import logging
 from db.chroma_client import get_collection
 from openai import OpenAI
 from config import config
 from memory.redis_window import RedisWindow
+
+logger = logging.getLogger("rag_service")
 
 class RAGService:
     def __init__(self, user_id: str):
@@ -30,14 +33,48 @@ class RAGService:
 
     def generate_answer(self, query: str):
         docs = self.search(query)
-        context = "\n".join([doc["document"] for doc in docs["documents"][0]])
-        prompt = f"Answer the following question using the context below.\nContext:\n{context}\nQuestion: {query}"
-        response = self.openai.chat.completions.create(
-            model=config.LLM_MODEL,
-            messages=[{"role": "system", "content": "Answer only if grounded."},
-                      {"role": "user", "content": prompt}]
-        )
-        answer = response.choices[0].message.content
-        self.memory.add_message("user", query)
-        self.memory.add_message("assistant", answer)
+        
+        # Handle ChromaDB response format
+        if docs and "documents" in docs and docs["documents"]:
+            # docs["documents"] is a list of lists, we want the first list
+            documents = docs["documents"][0] if docs["documents"][0] else []
+            context = "\n".join(documents)
+        else:
+            context = ""
+        
+        if not context.strip():
+            return "Sorry, I couldn't find relevant information to answer your question.", docs
+        
+        # Create a more detailed prompt for Bengali content
+        prompt = f"""Answer the following question using the context below. If the question is in Bengali, answer in Bengali. If the question is in English, answer in English.
+
+Context:
+{context}
+
+Question: {query}
+
+Please provide a direct and accurate answer based only on the information provided in the context."""
+
+        try:
+            response = self.openai.chat.completions.create(
+                model=config.LLM_MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that answers questions based on provided context. Answer only if the information is grounded in the context. If the question is in Bengali, respond in Bengali. If the question is in English, respond in English."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,
+                max_tokens=500
+            )
+            answer = response.choices[0].message.content or "Sorry, I couldn't generate an answer."
+        except Exception as e:
+            logger.error(f"Error generating answer: {str(e)}")
+            answer = "Sorry, I encountered an error while generating the answer."
+        
+        # Store conversation in memory
+        try:
+            self.memory.add_message("user", query)
+            self.memory.add_message("assistant", answer)
+        except Exception as e:
+            logger.warning(f"Could not store conversation in memory: {str(e)}")
+        
         return answer, docs

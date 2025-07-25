@@ -3,43 +3,481 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>RAG Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual RAG Assistant</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        main {
-            max-width: 700px;
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --dark-bg: #0f1419;
+            --card-bg: #1a1f2e;
+            --border-color: #2d3748;
+            --text-primary: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --user-bubble: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --assistant-bubble: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+            --shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 15px 35px rgba(0, 0, 0, 0.4);
         }
 
-        #conversation .user {
-            color: #0d6efd;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        #conversation .assistant {
-            color: #198754;
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        #spinner {
-            display: none;
+        .chat-container {
+            max-width: 900px;
+            margin: 0 auto;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg);
+            box-shadow: var(--shadow);
         }
 
-        #spinner.active {
+        .chat-header {
+            background: var(--primary-gradient);
+            padding: 1.5rem 2rem;
+            border-radius: 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chat-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.3;
+        }
+
+        .chat-header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .chat-header .subtitle {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 0.25rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .status-indicator {
             display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .conversation-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background: var(--dark-bg);
+            position: relative;
+        }
+
+        .conversation-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .conversation-area::-webkit-scrollbar-track {
+            background: var(--border-color);
+        }
+
+        .conversation-area::-webkit-scrollbar-thumb {
+            background: var(--text-secondary);
+            border-radius: 3px;
+        }
+
+        .message {
+            margin-bottom: 1.5rem;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .message.assistant {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 75%;
+            padding: 1rem 1.25rem;
+            border-radius: 1.25rem;
+            position: relative;
+            word-wrap: break-word;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .message.user .message-bubble {
+            background: var(--user-bubble);
+            color: white;
+            border-bottom-right-radius: 0.5rem;
+        }
+
+        .message.assistant .message-bubble {
+            background: var(--assistant-bubble);
+            color: var(--text-primary);
+            border-bottom-left-radius: 0.5rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .user .avatar {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .assistant .avatar {
+            background: var(--success-gradient);
+            color: white;
+        }
+
+        .input-area {
+            padding: 1.5rem 2rem;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-container {
+            position: relative;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        #prompt-input {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            padding-right: 3rem;
+            border: 2px solid var(--border-color);
+            border-radius: 1.25rem;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        #prompt-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        #prompt-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .send-button {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background: var(--primary-gradient);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 1rem 1.25rem;
+            background: var(--assistant-bubble);
+            border-radius: 1.25rem;
+            border-bottom-left-radius: 0.5rem;
+            max-width: 75%;
+            border: 1px solid var(--border-color);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .typing-indicator.active {
+            display: block;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 0.25rem;
+            align-items: center;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: typingDot 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typingDot {
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+
+            40% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .error-message {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: white;
+            padding: 1rem 1.25rem;
+            border-radius: 0.75rem;
+            margin: 1rem 0;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .welcome-message {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .welcome-message h3 {
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .sample-questions {
+            display: grid;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .sample-question {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .sample-question:hover {
+            background: var(--border-color);
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                height: 100vh;
+                border-radius: 0;
+            }
+
+            .chat-header {
+                padding: 1rem 1.5rem;
+            }
+
+            .conversation-area {
+                padding: 1rem;
+            }
+
+            .input-area {
+                padding: 1rem 1.5rem;
+            }
+
+            .message-bubble {
+                max-width: 85%;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
     </style>
 </head>
 
 <body>
-    <main class="border rounded mx-auto my-5 p-4">
-        <h1>RAG Chat</h1>
-        <div id="conversation" class="mb-3"></div>
-        <div id="spinner" class="spinner-border text-primary" role="status"></div>
-        <form id="chat-form" autocomplete="off">
-            <input id="prompt-input" name="prompt" class="form-control" placeholder="Type your question..." required
-                autofocus />
-            <button class="btn btn-primary mt-2" type="submit">Send</button>
-        </form>
-        <div id="error" class="d-none text-danger mt-2">Error occurred. Check console.</div>
-    </main>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>
+                <i class="fas fa-robot"></i>
+                Multilingual RAG Assistant
+                <span class="status-indicator"></span>
+            </h1>
+            <div class="subtitle">Bengali & English Question Answering System</div>
+        </div>
+
+        <div class="conversation-area" id="conversation">
+            <div class="welcome-message" id="welcome">
+                <h3><i class="fas fa-sparkles"></i> Welcome to RAG Assistant</h3>
+                <p>Ask me questions in Bengali or English about the HSC Bangla literature content.</p>
+
+                <div class="sample-questions">
+                    <div class="sample-question" data-question="অনুপমের ভাষায় সুপুরুষ কাকে বলা হয়েছে?">
+                        <i class="fas fa-question-circle"></i> অনুপমের ভাষায় সুপুরুষ কাকে বলা হয়েছে?
+                    </div>
+                    <div class="sample-question" data-question="কাকে অনুপমের ভাগ্য দেবতা বলে উল্লেখ করা হয়েছে?">
+                        <i class="fas fa-question-circle"></i> কাকে অনুপমের ভাগ্য দেবতা বলে উল্লেখ করা হয়েছে?
+                    </div>
+                    <div class="sample-question" data-question="বিয়ের সময় কল্যাণীর প্রকৃত বয়স কত ছিল?">
+                        <i class="fas fa-question-circle"></i> বিয়ের সময় কল্যাণীর প্রকৃত বয়স কত ছিল?
+                    </div>
+                </div>
+            </div>
+
+            <div class="typing-indicator" id="typing-indicator">
+                <div class="message-header">
+                    <div class="avatar"><i class="fas fa-robot"></i></div>
+                    <span>RAG Assistant is typing...</span>
+                </div>
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="error-message" id="error">
+                <i class="fas fa-exclamation-triangle"></i>
+                Something went wrong. Please try again.
+            </div>
+
+            <form id="chat-form" autocomplete="off">
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <textarea id="prompt-input" name="prompt" placeholder="Ask me anything in Bengali or English..."
+                            required autofocus rows="1"></textarea>
+                    </div>
+                    <button class="send-button" type="submit" id="send-button">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script type="module" src="/static/chat.js"></script>
 </body>
 

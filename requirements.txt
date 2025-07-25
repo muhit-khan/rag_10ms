@@ -14,6 +14,7 @@ duckdb==0.10.0
 pdfminer.six==20221105
 pytesseract==0.3.10
 pillow==10.3.0
+pdf2image==1.17.0
 slowapi==0.1.7
 opentelemetry-sdk==1.26.0
 opentelemetry-exporter-otlp==1.26.0
@@ -24,6 +25,7 @@ aiofiles==23.2.1
 python-jose[cryptography]==3.3.0
 scikit-learn>=1.4.0
 numpy>=1.26.0
+tqdm==4.66.2
 
 # Development & Testing
 ruff==0.4.4

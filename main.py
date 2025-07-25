@@ -33,7 +33,7 @@ from api.auth import AuthMiddleware
 from api.routers import router, limiter
 from config import config
 from ingest import find_pdf_files, process_pdf, create_embeddings
-from db.chroma_client import get_collection
+from db.chroma_client import get_collection, get_chroma_client
 from services.rag_service import RAGService
 
 # Configure logging
@@ -177,7 +177,24 @@ def run_ingestion(pdf_path: str, clean: bool = False) -> None:
     # Clear collection if requested
     if clean:
         logger.warning("Clearing existing collection")
-        collection.delete(where={})
+        try:
+            # Get all IDs first, then delete them
+            all_data = collection.get()
+            if all_data and all_data.get('ids'):
+                collection.delete(ids=all_data['ids'])
+                logger.info(f"Deleted {len(all_data['ids'])} existing documents")
+            else:
+                logger.info("Collection is already empty")
+        except Exception as e:
+            logger.warning(f"Error clearing collection: {str(e)}")
+            # Try to delete and recreate the collection
+            try:
+                client = get_chroma_client()
+                client.delete_collection(config.CHROMA_COLLECTION)
+                collection = client.get_or_create_collection(config.CHROMA_COLLECTION)
+                logger.info("Recreated collection after deletion")
+            except Exception as e2:
+                logger.error(f"Failed to recreate collection: {str(e2)}")
     
     # Find PDF files
     pdf_files = find_pdf_files(pdf_path)
@@ -382,7 +399,12 @@ def setup_argparse() -> argparse.Namespace:
 
 # --- Chat Endpoints ---
 from fastapi import APIRouter
+from pydantic import BaseModel
+
 chat_router = APIRouter()
+
+class ChatRequest(BaseModel):
+    prompt: str
 
 @chat_router.get("/static/{filename}")
 async def static_files(filename: str):
@@ -393,11 +415,28 @@ async def chat_page():
     return FileResponse("static/chat.html")
 
 @chat_router.post("/chat/")
-async def chat_api(request: Request):
-    data = await request.json()
-    prompt = data.get("prompt", "")
-    answer, _ = run_query(prompt)
-    return {"answer": answer}
+async def chat_api(chat_request: ChatRequest):
+    """
+    Simple chat endpoint without authentication for the web interface.
+    """
+    try:
+        logger.info(f"Chat request: {chat_request.prompt}")
+        answer, citations = run_query(chat_request.prompt, "web_user")
+        
+        # Format response for the web interface
+        return {
+            "answer": answer,
+            "citations": citations,
+            "status": "success"
+        }
+    except Exception as e:
+        logger.error(f"Chat API error: {str(e)}")
+        return {
+            "answer": "Sorry, I encountered an error while processing your request. Please try again.",
+            "citations": {},
+            "status": "error",
+            "error": str(e)
+        }
 
 # Create the FastAPI app
 app = create_app()
