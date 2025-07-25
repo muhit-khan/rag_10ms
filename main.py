@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -378,8 +379,29 @@ def setup_argparse() -> argparse.Namespace:
     return parser.parse_args()
 
 
+
+# --- Chat Endpoints ---
+from fastapi import APIRouter
+chat_router = APIRouter()
+
+@chat_router.get("/static/{filename}")
+async def static_files(filename: str):
+    return FileResponse(f"static/{filename}")
+
+@chat_router.get("/chat")
+async def chat_page():
+    return FileResponse("static/chat.html")
+
+@chat_router.post("/chat/")
+async def chat_api(request: Request):
+    data = await request.json()
+    prompt = data.get("prompt", "")
+    answer, _ = run_query(prompt)
+    return {"answer": answer}
+
 # Create the FastAPI app
 app = create_app()
+app.include_router(chat_router)
 
 if __name__ == "__main__":
     args = setup_argparse()
