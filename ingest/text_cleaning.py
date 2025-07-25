@@ -33,14 +33,14 @@ def clean_text(text: str) -> str:
 
 def save_text_to_file(text: str, filename: str):
     """
-    Save the extracted text to a .txt file in data/ingest/simple directory.
+    Save the extracted text to a .txt file in data/processed/simple directory.
     Args:
         text: The text to save.
         filename: The base filename (without extension) to use for the .txt file.
     """
     import os
     from pathlib import Path
-    output_dir = Path("data/ingest/simple")
+    output_dir = Path("data/processed/simple")
     output_dir.mkdir(parents=True, exist_ok=True)
     file_path = output_dir / f"{filename}.txt"
     with open(file_path, "w", encoding="utf-8") as f:

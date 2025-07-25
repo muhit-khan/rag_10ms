@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-Simplified ingestion pipeline for RAG system.
+Complete ingestion pipeline for RAG system.
 
-This module provides a simplified version of the ingestion pipeline
-that doesn't rely on ChromaDB or LangChain to avoid pydantic version conflicts.
+This module provides the complete ingestion pipeline that stores data in ChromaDB.
 
 Usage:
     python -m ingest [--clean] [--pdf_path PATH]
@@ -24,9 +23,10 @@ from config import config
 from ingest.chunk_loader import chunk_text
 from ingest.extract_text import extract_text_from_pdf
 from ingest.pdf_discovery import find_pdf_files
-from ingest.text_cleaning import clean_text
+from ingest.text_cleaning import clean_text, save_text_to_file
 from ingest.metadata_extraction import extract_metadata
 from ingest.embedding import create_embeddings
+from db.chroma_client import get_collection, get_chroma_client
 
 # Configure logging
 log_dir = Path("logs/ingest_logs")
@@ -76,6 +76,9 @@ def process_pdf(pdf_path: Path) -> Tuple[List[str], List[Dict[str, str]]]:
         text = clean_text(text)
         logger.info(f"Extracted and cleaned {len(text)} characters from {pdf_path}")
         
+        # Save extracted & cleaned text as .txt file
+        save_text_to_file(text, pdf_path.stem)
+        
         # Extract metadata
         base_metadata = extract_metadata(pdf_path, text)
         
@@ -99,52 +102,102 @@ def process_pdf(pdf_path: Path) -> Tuple[List[str], List[Dict[str, str]]]:
         return [], []
 
 
-def store_to_json(chunks: List[str], embeddings: List, metadata_list: List[Dict], ids: List[str], output_dir: str):
+def normalize_metadata_for_chromadb(metadata: Dict):
     """
-    Store chunks, embeddings, and metadata to JSON files.
+    Normalize metadata for ChromaDB compatibility.
+    ChromaDB only accepts string, int, float, or bool values.
     """
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+    normalized = {}
     
-    # Store chunks and metadata
-    data = []
-    for i, (chunk, metadata, chunk_id) in enumerate(zip(chunks, metadata_list, ids)):
-        item = {
-            "id": chunk_id,
-            "chunk": chunk,
-            "metadata": metadata,
-            "embedding": embeddings[i] if i < len(embeddings) and embeddings[i] is not None else None
-        }
-        data.append(item)
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        elif isinstance(value, (str, int, float, bool)):
+            normalized[key] = value
+        elif isinstance(value, list):
+            # Convert lists to comma-separated strings
+            normalized[key] = ", ".join(str(item) for item in value)
+        else:
+            # Convert everything else to string
+            normalized[key] = str(value)
     
-    # Write to JSON file
-    output_file = output_path / "chunks.json"
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    return normalized
+
+
+def store_to_chromadb(chunks: List[str], embeddings: List, metadata_list: List[Dict], ids: List[str], clean: bool = False):
+    """
+    Store chunks, embeddings, and metadata to ChromaDB.
+    """
+    logger.info("Initializing ChromaDB...")
     
-    logger.info(f"Stored {len(data)} chunks to {output_file}")
+    # Get ChromaDB collection
+    collection = get_collection()
+    
+    # Clear collection if requested
+    if clean:
+        logger.warning("Clearing existing ChromaDB collection")
+        try:
+            # Get all IDs first, then delete them
+            all_data = collection.get()
+            if all_data and all_data.get('ids'):
+                collection.delete(ids=all_data['ids'])
+                logger.info(f"Deleted {len(all_data['ids'])} existing documents")
+            else:
+                logger.info("Collection is already empty")
+        except Exception as e:
+            logger.warning(f"Error clearing collection: {str(e)}")
+            # Try to delete and recreate the collection
+            try:
+                client = get_chroma_client()
+                client.delete_collection(config.CHROMA_COLLECTION)
+                collection = client.get_or_create_collection(config.CHROMA_COLLECTION)
+                logger.info("Recreated collection after deletion")
+            except Exception as e2:
+                logger.error(f"Failed to recreate collection: {str(e2)}")
+    
+    # Normalize metadata for ChromaDB compatibility
+    logger.info("Normalizing metadata for ChromaDB...")
+    normalized_metadata = [normalize_metadata_for_chromadb(metadata) for metadata in metadata_list]
+    
+    # Store in ChromaDB in batches
+    logger.info(f"Storing {len(chunks)} chunks in ChromaDB...")
+    batch_size = 100
+    
+    for i in range(0, len(chunks), batch_size):
+        end_idx = min(i + batch_size, len(chunks))
+        try:
+            collection.add(
+                documents=chunks[i:end_idx],
+                embeddings=embeddings[i:end_idx],
+                metadatas=normalized_metadata[i:end_idx],
+                ids=ids[i:end_idx]
+            )
+            logger.info(f"Stored batch {i//batch_size + 1}/{(len(chunks)-1)//batch_size + 1}")
+        except Exception as e:
+            logger.error(f"Error storing batch {i//batch_size + 1}: {str(e)}")
+    
+    # Verify storage
+    total_count = collection.count()
+    logger.info(f"ChromaDB now contains {total_count} total documents")
 
 
 def main():
-    """Main entry point for simplified ingestion pipeline."""
+    """Main entry point for complete ingestion pipeline."""
     args = setup_argparse()
     pdf_path = args.pdf_path or config.PDF_PATH
     
-    # Create output directory
-    output_dir = Path("data/processed/simple")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Clear existing data if requested
-    if args.clean:
-        logger.warning("Clearing existing data")
-        for file in output_dir.glob("*.json"):
-            file.unlink()
+    logger.info("Starting ChromaDB ingestion pipeline...")
+    logger.info(f"PDF path: {pdf_path}")
+    logger.info(f"ChromaDB persist directory: {config.CHROMA_PERSIST_DIR}")
+    logger.info(f"ChromaDB collection: {config.CHROMA_COLLECTION}")
     
     # Find PDF files
     pdf_files = find_pdf_files(pdf_path)
     if not pdf_files:
         logger.error(f"No PDF files found in {pdf_path}")
         return
+    
+    logger.info(f"Found {len(pdf_files)} PDF files to process")
     
     # Process each PDF
     all_chunks = []
@@ -168,6 +221,8 @@ def main():
         logger.error("No chunks generated from any PDF")
         return
     
+    logger.info(f"Generated {len(all_chunks)} total chunks from {len(pdf_files)} PDFs")
+    
     # Create embeddings
     logger.info(f"Creating embeddings for {len(all_chunks)} chunks")
     embeddings = create_embeddings(all_chunks)
@@ -181,9 +236,11 @@ def main():
         all_ids = [all_ids[i] for i in valid_indices]
         embeddings = [embeddings[i] for i in valid_indices]
     
-    # Store to JSON
-    store_to_json(all_chunks, embeddings, all_metadata, all_ids, str(output_dir))
-    logger.info("Ingestion complete")
+    logger.info(f"Successfully created embeddings for {len(all_chunks)} chunks")
+    
+    # Store to ChromaDB
+    store_to_chromadb(all_chunks, embeddings, all_metadata, all_ids, args.clean)
+    logger.info("Ingestion pipeline completed successfully!")
 
 
 if __name__ == "__main__":
