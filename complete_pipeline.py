@@ -23,12 +23,17 @@ from threading import Thread
 from config import config
 
 # Configure logging
+# Ensure logs directory exists
+log_dir = Path("logs/complete_pipeline")
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / f"pipeline_{time.strftime('%Y%m%d_%H%M%S')}.log"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(f"pipeline_{time.strftime('%Y%m%d_%H%M%S')}.log"),
+        logging.FileHandler(log_file),
     ],
 )
 logger = logging.getLogger("pipeline")

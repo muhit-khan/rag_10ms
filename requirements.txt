@@ -10,7 +10,6 @@ tiktoken==0.6.0
 redis==5.0.4
 python-dotenv==1.0.1
 pydantic==2.5.3
-# pydantic-v1==1.10.13  # Add pydantic v1 for compatibility with langsmith
 pydantic-settings==2.1.0
 duckdb==0.10.0
 pdfminer.six==20221105

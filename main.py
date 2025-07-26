@@ -36,13 +36,17 @@ from ingest import find_pdf_files, process_pdf, create_embeddings
 from db.chroma_client import get_collection, get_chroma_client
 from services.rag_service import RAGService
 
+# Ensure logs directory exists
+log_dir = os.path.join(os.path.dirname(__file__), "logs")
+os.makedirs(log_dir, exist_ok=True)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(f"api_{time.strftime('%Y%m%d')}.log"),
+        logging.FileHandler(os.path.join(log_dir, f"api_{time.strftime('%Y%m%d')}.log")),
     ],
 )
 logger = logging.getLogger("main")

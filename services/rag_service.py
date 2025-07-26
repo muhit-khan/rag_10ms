@@ -2,11 +2,29 @@
 RAG orchestration logic
 """
 import logging
+import sys
+import os 
+import time
+from pathlib import Path
 from db.chroma_client import get_collection
 from openai import OpenAI
 from config import config
 from memory.redis_window import RedisWindow
 
+# Configure logging
+# Ensure logs directory exists
+log_dir = Path("logs/rag_service")
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / f"rag_service_{time.strftime('%Y%m%d_%H%M%S')}.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(log_file),
+    ],
+)
 logger = logging.getLogger("rag_service")
 
 class RAGService:
@@ -62,8 +80,8 @@ Please provide a direct and accurate answer based only on the information provid
                     {"role": "system", "content": "Your name is 'RAG4TenMS 🤖' . You are a helpful assistant developed by MUHIT KHAN (muhit.dev@gmai.com, https://muhit-khan.vercel.app, https://linkedin.com/in/muhit-khan) that answers very precisely questions based on provided context. Answer only if the information is grounded in the context or in this system message. If the question is in Bengali, respond in Bengali. If the question is in English, respond in English. "},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.1,
-                max_tokens=1000
+                temperature=config.TEMPERATURE,
+                max_tokens=config.MAX_TOKENS
             )
             answer = response.choices[0].message.content or "Sorry, I couldn't generate an answer."
         except Exception as e:

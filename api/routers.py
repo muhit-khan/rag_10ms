@@ -4,7 +4,6 @@ FastAPI routers: /ask, /health, /evaluate
 This module defines the API endpoints for the RAG system with proper
 input validation, error handling, and documentation.
 """
-import logging
 import time
 from typing import Any, Dict, List, Optional
 
@@ -20,17 +19,6 @@ from services.rag_service import RAGService
 from services.eval_service import EvalService
 import os
 
-# Configure logging
-log_dir = "logs/api"
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "api.log")
-
-logger = logging.getLogger("api")
-logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler(log_file)
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 # Configure rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -111,7 +99,6 @@ async def health():
     Returns:
         dict: Status information
     """
-    logger.info("Health check requested")
     return {
         "status": "ok",
         "version": "1.0.0"
@@ -158,8 +145,7 @@ async def login(request: Request, login_request: LoginRequest):
     
     # Generate token
     token = generate_test_token(login_request.username)
-    
-    logger.info(f"Generated token for user: {login_request.username}")
+
     return token
 
 
@@ -220,8 +206,6 @@ async def ask(
     start_time = time.time()
     
     try:
-        logger.info(f"Processing query: '{ask_request.query}' for user: {current_user.user_id}")
-        
         # Use authenticated user ID
         rag = RAGService(current_user.user_id)
         answer, docs = rag.generate_answer(ask_request.query)
@@ -238,7 +222,6 @@ async def ask(
                 sources.append(source)
         
         processing_time = time.time() - start_time
-        logger.info(f"Query processed in {processing_time:.2f}s")
         
         return {
             "answer": answer,
@@ -247,14 +230,12 @@ async def ask(
         }
     
     except KeyError as e:
-        logger.error(f"Missing required field: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Missing required field: {str(e)}"
         )
     
     except Exception as e:
-        logger.error(f"Error processing query: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while processing your query"
@@ -295,9 +276,7 @@ async def evaluate(
     """
     start_time = time.time()
     
-    try:
-        logger.info(f"Evaluating {len(eval_request.qa_pairs)} QA pairs for user: {current_user.user_id}")
-        
+    try:        
         # Convert Pydantic models to dictionaries
         qa_pairs = [qa_pair.dict() for qa_pair in eval_request.qa_pairs]
         
@@ -306,7 +285,6 @@ async def evaluate(
         results = eval_service.batch_eval(qa_pairs)
         
         processing_time = time.time() - start_time
-        logger.info(f"Evaluation completed in {processing_time:.2f}s")
         
         return {
             "results": results,
@@ -314,14 +292,12 @@ async def evaluate(
         }
     
     except KeyError as e:
-        logger.error(f"Missing required field: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Missing required field: {str(e)}"
         )
     
     except Exception as e:
-        logger.error(f"Error during evaluation: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during evaluation"

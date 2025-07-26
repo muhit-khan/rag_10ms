@@ -6,6 +6,8 @@ focusing on groundedness, relevance, and factual consistency.
 """
 import logging
 import re
+import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -14,8 +16,24 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from config import config
 from services.rag_service import RAGService
+import sys
+import time
+from pathlib import Path
 
 # Configure logging
+# Ensure logs directory exists
+log_dir = Path("logs/eval")
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / f"eval_service_{time.strftime('%Y%m%d_%H%M%S')}.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler(log_file),
+    ],
+)
 logger = logging.getLogger("eval_service")
 
 
