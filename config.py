@@ -52,7 +52,7 @@ class Config:
         # LLM
         self.LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4.1-mini-2025-04-14")
         self.TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
-        self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "1000"))
+        self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "500"))
         
         # Evaluation
         self.GROUND_SCORE_THRESHOLD = float(os.getenv("GROUND_SCORE_THRESHOLD", "0.25"))

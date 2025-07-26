@@ -232,7 +232,7 @@ class RAGChatInterface {
             avatar.innerHTML = '<i class="fas fa-robot"></i>';
             header.innerHTML = `
                 <div class="avatar"><i class="fas fa-robot"></i></div>
-                <span>RAG Assistant</span>
+                <span>RAG4TenMS</span>
                 <span style="margin-left: auto; font-size: 0.7rem; opacity: 0.6;">${timestamp}</span>
             `;
         }

@@ -15,7 +15,7 @@ echo "8) Start RAG Chat Interface"
 read -p "Enter option [1-8]: " opt
 
 case "$opt" in
-  1) echo "🚀 Running COMPLETE PIPELINE..."; python pipeline.py ;;
+  1) echo "🚀 Running COMPLETE PIPELINE..."; python complete_pipeline.py ;;
   2) echo "Running main.py..."; python main.py ;;
   3) echo "Starting FastAPI server..."; uvicorn main:app --host 0.0.0.0 --port 8000 --reload ;;
   4) echo "Running ingestion pipeline..."; python -m ingest ;;
