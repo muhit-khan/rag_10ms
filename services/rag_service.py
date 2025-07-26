@@ -59,11 +59,11 @@ Please provide a direct and accurate answer based only on the information provid
             response = self.openai.chat.completions.create(
                 model=config.LLM_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that answers questions based on provided context. Answer only if the information is grounded in the context. If the question is in Bengali, respond in Bengali. If the question is in English, respond in English."},
+                    {"role": "system", "content": "Your name is 'RAG4TenMS 🤖' . You are a helpful assistant developed by MUHIT KHAN (muhit.dev@gmai.com, https://muhit-khan.vercel.app, https://linkedin.com/in/muhit-khan) that answers very precisely questions based on provided context. Answer only if the information is grounded in the context or in this system message. If the question is in Bengali, respond in Bengali. If the question is in English, respond in English. "},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.1,
-                max_tokens=500
+                max_tokens=1000
             )
             answer = response.choices[0].message.content or "Sorry, I couldn't generate an answer."
         except Exception as e:
