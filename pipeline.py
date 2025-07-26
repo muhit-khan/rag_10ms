@@ -137,15 +137,19 @@ def check_prerequisites():
         logger.warning(f"PDF directory {pdf_path} does not exist. Creating it...")
         pdf_path.mkdir(parents=True, exist_ok=True)
     
-    # Check if there are PDF files
-    pdf_files = list(pdf_path.glob("*.pdf"))
-    if not pdf_files:
-        logger.warning(f"No PDF files found in {pdf_path}")
-        logger.warning("Please add some PDF files to the directory before running the pipeline.")
+    # Check if there are document files
+    doc_patterns = ["*.pdf", "*.docx", "*.csv", "*.txt"]
+    doc_files = []
+    for pattern in doc_patterns:
+        doc_files.extend(pdf_path.glob(pattern))
+    doc_files = list(doc_files)
+    if not doc_files:
+        logger.warning(f"No document files (pdf, docx, csv, txt) found in {pdf_path}")
+        logger.warning("Please add some document files to the directory before running the pipeline.")
         return False
-    
-    logger.info(f"Found {len(pdf_files)} PDF files in {pdf_path}")
-    
+
+    logger.info(f"Found {len(doc_files)} document files in {pdf_path}")
+
     # Check if required directories exist
     chroma_dir = Path(config.CHROMA_PERSIST_DIR)
     chroma_dir.mkdir(parents=True, exist_ok=True)
